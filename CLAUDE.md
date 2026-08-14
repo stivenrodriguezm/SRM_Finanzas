@@ -23,20 +23,32 @@ cuando edites el archivo.
 
 ## Contexto rápido del proyecto
 
-- Dos backends existen en el repo: `backend/` es el que usa la app (puerto 5005), `api-backend/` es un prototipo
-  abandonado. No lo confundas ni lo actualices pensando que es el activo.
-- La URL del backend en la app móvil vive en un solo sitio: `mobile-app/src/config/api.js` (hostname `.local` del Mac,
-  no IP fija). Si vuelves a ver un `API_URL` hardcodeado copiado en alguna pantalla, es una regresión — debe importarse
-  desde ahí. Ver sección 4.4/8 de `PROYECTO.md`.
+- Dos backends existen en el repo: `backend/` es el que usa la app (TypeScript, puerto 5005), `api-backend/` es un
+  prototipo abandonado (sigue en JS). No lo confundas ni lo actualices pensando que es el activo.
+- Backend y mobile están **en TypeScript, `strict: true`**. Antes de dar por terminado un cambio en cualquiera de los
+  dos, corre `npm run typecheck` (y `npm test`) en la carpeta correspondiente — ambos deben quedar limpios.
+- La URL del backend en la app móvil vive en un solo sitio: `mobile-app/src/config/api.ts` (hostname `.local` del Mac,
+  no IP fija). Todas las pantallas llaman al backend a través de `mobile-app/src/services/apiClient.ts` (instancia de
+  axios centralizada que inyecta el JWT solo). Si ves una pantalla importando `axios` directo o armando headers de
+  `Authorization` a mano, es una regresión al patrón viejo — debe usar `apiClient`. Ver sección 4.4 de `PROYECTO.md`.
+- Las operaciones que mueven dinero (crear/editar/borrar transacción, pagar deuda, pagar recordatorio) están envueltas
+  en `session.withTransaction()` de Mongo (`backend/src/utils/withTransaction.ts`). Cualquier nueva forma de mover
+  dinero entre `Account`/`Debt`/`Transaction` debe seguir ese mismo patrón, no hacer los `save()` sueltos.
 - El backend no está desplegado en la nube: la app en el iPhone depende de que el Mac esté encendido, con
   `backend/` corriendo, y en la misma red Wi-Fi que el iPhone. Ver sección 8 de `PROYECTO.md` para el detalle de
-  firma de Xcode / dispositivo registrado antes de tocar nada de compilación iOS.
+  firma de Xcode / dispositivo registrado antes de tocar nada de compilación iOS. Si agregas una dependencia nativa
+  nueva al móvil, declárala como dependencia directa en `package.json` (no confíes en que quede resuelta solo por ser
+  transitiva de `expo`) y corre `npx expo prebuild --platform ios` + `pod install` después.
 - Todo el texto de UI, commits de negocio y mensajes de error del backend están en español — sigue esa convención
   al escribir código nuevo (nombres de variables/funciones en inglés está bien, pero strings visibles al usuario en
   español).
-- No hay repositorio git inicializado en la raíz. Si el usuario pide hacer commits, probablemente primero haya que
-  inicializar el repo (pregunta antes de hacerlo).
+- Hay repo git inicializado con remoto en GitHub (`stivenrodriguezm/SRM_Finanzas`). Nunca hagas `push` sin que el
+  usuario lo pida explícitamente.
 
 ## Preferencias de trabajo conocidas
 
-Tu rol es desarrollador fullstack con enfasis en la experiencia de usuario ui/ux y el codigo persistente, agil, con mucha experiencia en desarrollo de aplicaciones moviles
+- Tu rol es desarrollador fullstack con énfasis en experiencia de usuario (UI/UX) y código persistente, ágil, con
+  mucha experiencia en desarrollo de aplicaciones móviles.
+- Cuando el usuario pide una lista larga de features/fixes agrupados por prioridad, espera que se implementen todos
+  los ítems pedidos de una sola vez (no uno por uno con confirmación intermedia), con commits separados por área
+  (backend / mobile) y verificación real (tests + typecheck + build) antes de dar cada bloque por terminado.

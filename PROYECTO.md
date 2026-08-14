@@ -15,31 +15,34 @@ Nombre visible de la app: **SRM Finanzas** (`mobile-app/app.json`, bundle id `co
 
 ```
 Finanzas personales/
-├── backend/            ← API activa (Express 5 + MongoDB). Esta es la que usa la app móvil.
+├── backend/            ← API activa (Express 5 + TypeScript + MongoDB). Esta es la que usa la app móvil.
 ├── api-backend/         ← Prototipo antiguo/abandonado. NO se usa. Ver sección 7.
-├── mobile-app/          ← App React Native + Expo (iOS/Android).
+├── mobile-app/          ← App React Native + Expo + TypeScript (iOS/Android).
 └── package-lock.json    ← archivo suelto en la raíz, no pertenece a un package.json real ahí.
 ```
 
-**No hay repositorio git inicializado en la raíz** (`git status` falla con "not a git repository"). No hay historial de versiones del proyecto todavía.
+Repo git inicializado en la raíz, con remoto `origin` en GitHub (`stivenrodriguezm/SRM_Finanzas`).
 
 ## 3. Backend (`backend/`)
 
-- Stack: Node.js, Express 5, Mongoose 9 (MongoDB), JWT (`jsonwebtoken`), `bcryptjs` para hash de contraseñas.
-- Entry point: `server.js` → `app.listen(PORT, '0.0.0.0', ...)`.
-- Variables de entorno (`backend/.env`, no versionado): `PORT` (actualmente **5005**), `MONGO_URI`, `JWT_SECRET`.
-- Todas las rutas bajo `/api` están protegidas con el middleware `protect` (`src/middlewares/authMiddleware.js`), excepto `POST /api/auth/register` y `POST /api/auth/login`.
-- `protect` espera un JWT en el header `Authorization: Bearer <token>` y expone `req.user.id`.
+- Stack: Node.js, **TypeScript** (`strict: true`), Express 5, Mongoose 9 (MongoDB), JWT (`jsonwebtoken`), `bcryptjs`, `zod` (validación), `nodemailer` (envío de correo).
+- Entry point: `src/server.ts` (conecta DB y levanta `app.listen`). `src/app.ts` exporta la app de Express ya configurada (rutas + middlewares) sin conectar DB ni escuchar — es lo que importan los tests.
+- Scripts: `npm run dev` (tsx watch), `npm run build` (compila a `dist/`), `npm start` (corre `dist/server.js`), `npm run typecheck`, `npm test` (Jest), `npm run migrate:debt-transactions` (script de migración puntual, ver 3.4).
+- Variables de entorno (`backend/.env`, no versionado — ver `.env.example`): `PORT` (**5005**), `MONGO_URI`, `JWT_SECRET`, `EMAIL_USER`, `EMAIL_APP_PASSWORD`, `EMAIL_FROM` (estas tres para recuperación de contraseña — ver 3.2).
+- Todas las rutas bajo `/api` están protegidas con el middleware `protect` (`src/middlewares/authMiddleware.ts`), excepto `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/forgot-password` y `POST /api/auth/reset-password`.
+- `protect` espera un JWT en el header `Authorization: Bearer <token>` y expone `req.user` (documento completo de `User`, sin password).
+- **Manejo de errores centralizado**: los controllers usan `catchAsync` (envuelve el handler y reenvía cualquier rechazo a `next`) y lanzan `throw new AppError(mensaje, statusCode)` en vez de `res.status().json()` manual. `src/middlewares/errorHandler.ts` captura todo al final: si es un `AppError` responde su mensaje tal cual; cualquier otro error (bug, fallo de Mongo) se loguea en el servidor y al cliente solo le llega `{ message: 'Error interno del servidor' }` — nunca se filtra `error.message`/stack de errores no operacionales.
+- **Validación**: cada ruta que recibe body pasa por `validate(schema)` (`src/middlewares/validate.ts`) con un schema de `zod` en `src/schemas/*Schemas.ts`. Si falla, responde 400 con un `AppError`.
 
-### 3.1 Modelos (Mongoose)
+### 3.1 Modelos (Mongoose, con interfaces TS en cada archivo)
 
 | Modelo | Campos clave | Notas |
 |---|---|---|
-| `User` | `name`, `username`, `email`, `password` (hash), `preferences: { theme, hideAmounts, accountOrder, selectedAccounts }` | `preferences` existe en el modelo y tiene endpoint (`PUT /api/auth/preferences`) pero **el frontend no lo usa** (ver 6.4). |
-| `Account` | `user`, `name`, `balance`, `color`, `icon`, `isLiability`, `description` | Representa una cuenta/bolsillo. `isLiability` distingue cuentas normales de "pasivos". |
-| `Transaction` | `user`, `account`, `reminder?`, `title`, `amount`, `type: ingreso\|egreso\|abono_deuda`, `date` | El `type` determina si suma o resta del `balance` de la cuenta. |
-| `Debt` | `user`, `name`, `totalAmount`, `remainingAmount`, `type: debo\|me_deben`, `dueDate?`, `color`, `icon`, `isActive`, `description` | `debo` = yo debo (pasivo), `me_deben` = préstamo que hice (activo/cuenta por cobrar). |
-| `Reminder` | `user`, `title`, `date`, `type: unico\|periodico`, `amount?`, `isPaid`, `paymentLink?`, `description?`, `dayOfMonth?` | Recordatorios de pago; los periódicos avanzan de fecha automáticamente al pagarse. |
+| `User` | `name`, `username`, `email`, `password` (hash), `preferences: { theme, hideAmounts, accountOrder, selectedAccounts }`, `resetPasswordCodeHash?`, `resetPasswordExpires?` (ambos `select: false`) | `preferences` existe en el modelo y tiene endpoint (`PUT /api/auth/preferences`) pero **el frontend no lo usa** (ver 6). Los campos de reset de contraseña se usan en el flujo de recuperación (3.2). |
+| `Account` | `user`, `name`, `balance`, `color`, `icon`, `isLiability`, `description` | Representa una cuenta/bolsillo. `isLiability` distingue cuentas normales de "pasivos". Índice en `user`. |
+| `Transaction` | `user`, `account`, `reminder?`, `debt?`, `title`, `amount`, `type: ingreso\|egreso\|abono_deuda`, `date` | El `type` determina si suma o resta del `balance` de la cuenta. `debt` (nuevo) liga un abono directamente a la deuda que paga. Índices en `{user,date}`, `{user,debt}`, `{user,reminder}`. |
+| `Debt` | `user`, `name`, `totalAmount`, `remainingAmount`, `type: debo\|me_deben`, `dueDate?`, `color`, `icon`, `isActive`, `description` | `debo` = yo debo (pasivo), `me_deben` = préstamo que hice (activo/cuenta por cobrar). Índice en `user`. |
+| `Reminder` | `user`, `title`, `date`, `type: unico\|periodico`, `amount?`, `isPaid`, `paymentLink?`, `description?`, `dayOfMonth?` | Recordatorios de pago; los periódicos avanzan de fecha automáticamente al pagarse. Índice en `{user,date}`. |
 
 ### 3.2 Endpoints por recurso
 
@@ -48,67 +51,81 @@ Todos bajo `http://<host>:5005/api`.
 **Auth** (`/auth`)
 - `POST /register` — crea usuario, devuelve `{ ...user, token }`.
 - `POST /login` — devuelve `{ ...user, token }`.
-- `GET /profile` — perfil del usuario autenticado.
-- `PUT /profile` — editar `name`/`username`/`email`.
-- `PUT /change-password`.
+- `POST /forgot-password` — `{ email }`. Si el correo existe, genera un código de 6 dígitos, lo guarda hasheado (10 min de validez) y lo envía por correo (`utils/sendEmail.ts`, Nodemailer sobre Gmail). Responde siempre el mismo mensaje genérico, exista o no el correo, para no revelar usuarios. Si `EMAIL_USER`/`EMAIL_APP_PASSWORD` no están configurados en `.env`, no fala la request pero tampoco se envía nada (solo queda un `console.warn`).
+- `POST /reset-password` — `{ email, code, newPassword }`. Verifica el código contra el hash guardado y su expiración.
+- `GET /profile`, `PUT /profile`, `PUT /change-password`.
 - `PUT /preferences` — **no usado por el frontend actualmente**.
 
 **Accounts** (`/accounts`)
 - `GET /` (filtro opcional `?isLiability=true|false`), `POST /`, `PUT /:id`, `DELETE /:id`.
 
 **Transactions** (`/transactions`)
-- `GET /` (poblado con `account`), `POST /` (actualiza balance de la cuenta), `DELETE /:id` (revierte el balance).
+- `GET /` (poblado con `account`).
+- `POST /` — crea la transacción y actualiza el balance de la cuenta **dentro de una transacción de Mongo** (ver 3.3).
+- `PUT /:id` — edita `title`/`amount`/`date`/`account` (no el `type`) y recalcula el/los balance(s) afectados; si la transacción es un `abono_deuda`, también ajusta `Debt.remainingAmount`. Todo atómico.
+- `DELETE /:id` — revierte el balance (y el `remainingAmount` de la deuda si aplica), atómico.
 
 **Debts** (`/debts`)
 - `GET /`, `GET /:id`, `POST /`, `PUT /:id`, `DELETE /:id`.
-- `GET /:id/transactions` — abonos relacionados (busca por `Transaction.title` que contenga el nombre de la deuda — ver limitación en 7).
-- `POST /:id/payment` — registra un abono: baja `remainingAmount`, crea `Transaction` tipo `abono_deuda`, ajusta el balance de la cuenta según el sentido de la deuda (`debo` resta, `me_deben` suma), y marca `isActive: false` si queda saldada.
+- `GET /:id/transactions` — abonos relacionados: primero por `Transaction.debt` (relación real), y como fallback para datos históricos anteriores a esta migración, por regex sobre el título (ver 3.4).
+- `POST /:id/payment` — registra un abono: baja `remainingAmount`, crea `Transaction` tipo `abono_deuda` (con `debt` seteado), ajusta el balance de la cuenta según el sentido de la deuda (`debo` resta, `me_deben` suma), y marca `isActive: false` si queda saldada. Todo en una transacción de Mongo.
 
 **Reminders** (`/reminders`)
 - `GET /`, `POST /`, `PUT /:id`, `DELETE /:id`.
-- `PUT /:id/mark-paid` — marca pagado; si es periódico, avanza al mes siguiente y resetea `isPaid`.
-- `POST /:id/pay` — crea una `Transaction` tipo `egreso` ligada al recordatorio (`reminder` ref) y ajusta el balance; si es periódico avanza la fecha.
+- `PUT /:id/mark-paid` — marca pagado; si es periódico, avanza al mes siguiente (desde la fecha actual del recordatorio) y resetea `isPaid`.
+- `POST /:id/pay` — crea una `Transaction` tipo `egreso` ligada al recordatorio (`reminder` ref) y ajusta el balance; si es periódico avanza la fecha un mes exacto desde su vencimiento actual (no desde "hoy" — bug corregido, ver 3.4). Todo en una transacción de Mongo.
 - `GET /:id/payments` — historial de pagos (`Transaction.find({ reminder: id })`).
 
 ### 3.3 Reglas de negocio importantes
-- El balance de una `Account` **no se recalcula desde las transacciones**: se actualiza incrementalmente en cada create/delete de transacción y en cada pago de deuda/recordatorio. Si algo falla a mitad de camino, el balance puede desincronizarse (no hay transacciones atómicas de Mongo en uso).
-- No existe endpoint de actualización de `Transaction` (solo crear/borrar), así que "editar" una transacción en la UI probablemente implica borrar + crear.
+- El balance de una `Account` **sigue sin ser una fuente derivada** (no se recalcula desde las transacciones), pero cada operación que lo toca (crear/editar/borrar transacción, pagar deuda, pagar recordatorio) corre dentro de `session.withTransaction()` (`src/utils/withTransaction.ts`). Si algo falla a mitad de camino, Mongo revierte todo el conjunto — ya no puede quedar el balance actualizado sin la transacción, o viceversa.
+- `PUT /transactions/:id` no permite cambiar el `type` (p. ej. de `egreso` a `abono_deuda`): la lógica de conversión sería ambigua respecto al `remainingAmount` de una deuda. Para cambiar el tipo hay que borrar y crear una transacción nueva.
+
+### 3.4 Migraciones y bugs corregidos en el hardening de 2026-08-14
+- **`Transaction.debt`** es un campo nuevo. Los abonos históricos (creados antes de este cambio) no lo tienen, solo tienen el título con el nombre de la deuda embebido. `backend/scripts/migrateDebtTransactions.ts` los vincula por regex una sola vez (ya se corrió contra la base real — no encontró transacciones para migrar en ese momento, pero es seguro re-correrlo, es idempotente). `getDebtTransactions` sigue soportando el regex como fallback para no perder historial de datos que nunca se migraron.
+- **Bug corregido**: `payReminder` recalculaba la próxima fecha de un recordatorio periódico desde "hoy" en vez de desde el vencimiento actual guardado, lo que en ciertos casos dejaba la fecha sin avanzar al pagar. Ahora avanza siempre un mes exacto desde `reminder.date` (igual que `markReminderPaid`).
+- **`JWT_SECRET` regenerado** con un valor aleatorio fuerte (antes era un placeholder predecible) — esto invalidó las sesiones que hubiera activas antes de este cambio; los usuarios necesitan volver a iniciar sesión una vez.
 
 ## 4. Mobile app (`mobile-app/`)
 
-- Stack: Expo ~54, React 19, React Native 0.81, React Navigation (bottom tabs + native stack), `axios`, `@react-native-async-storage/async-storage`.
-- Proyecto con carpeta `ios/` generada (prebuild nativo) — ya se ha compilado un `.ipa` (`Finanzas.ipa`) para instalar en dispositivo real.
-- Todo el texto de la UI y los mensajes están en español.
+- Stack: Expo ~54, React 19, React Native 0.81, **TypeScript** (`strict: true`, `tsconfig.json` extiende `expo/tsconfig.base`), React Navigation (bottom tabs + native stack), `axios`, `@react-native-async-storage/async-storage`, `react-native-chart-kit` + `react-native-svg` (gráficos), `expo-local-authentication` (biometría), `expo-notifications` (avisos locales), `expo-file-system` + `expo-sharing` (exportar datos).
+- Proyecto con carpeta `ios/` generada (`expo prebuild`), CocoaPods instalado. Compila limpio para simulador (`npx expo run:ios`) al día de esta actualización.
+- Todo el texto de la UI y los mensajes están en español. Todos los archivos fuente son `.ts`/`.tsx` (ya no queda JS en `src/`).
 
-### 4.1 Navegación (`src/navigation/AppNavigator.js`)
-- Si `!isAuthenticated` → stack de auth: `Landing`, `Register`, `ForgotPassword`.
-- Si autenticado → `TabRoot` (bottom tabs: **Balance** = Home, **Transacciones**, **Deudas**, **Recordatorios**) + pantallas modal/stack: `AddRecord`, `AddReminder`, `ReminderDetail`, `Perfil`, `DebtDetail`, `AddDebt`, `Receivables` ("Me Deben"), `Preferences`, `AccountDetail`.
+### 4.1 Navegación (`src/navigation/AppNavigator.tsx`, tipos en `src/navigation/types.ts`)
+- Si `!isAuthenticated` → stack de auth: `Landing`, `Register`, `ForgotPassword`, `ResetPassword`.
+- Si autenticado → el stack completo queda envuelto en `<BiometricGate>` (ver 4.5) y contiene `TabRoot` (bottom tabs: **Balance** = Home, **Transacciones**, **Deudas**, **Recordatorios**, **Análisis**) + pantallas modal/stack: `AddRecord`, `AddReminder`, `ReminderDetail`, `Perfil`, `DebtDetail`, `AddDebt`, `Receivables` ("Me Deben"), `Preferences`, `AccountDetail`.
+- `RootStackParamList`/`TabParamList` en `navigation/types.ts` documentan exactamente qué params espera cada pantalla — son la referencia si vas a agregar una navegación nueva (varios params reales no eran obvios por el nombre de la pantalla, p. ej. `DebtDetail` recibe `id`, `title`, `total`, `color`, `icon`, `iconColor`, `iconBg`, `type`).
 
 ### 4.2 Pantallas (`src/screens/`)
-- `HomeScreen.js` — balance general / listado de cuentas.
-- `TransactionsScreen.js` — listado de movimientos.
-- `AddRecordScreen.js` — crear transacción.
-- `DebtsScreen.js` / `DebtDetailScreen.js` / `AddDebtScreen.js` — deudas propias.
-- `ReceivablesScreen.js` — deudas de tipo `me_deben` ("Me Deben").
-- `RemindersScreen.js` / `ReminderDetailScreen.js` / `AddReminderScreen.js` — recordatorios de pago.
-- `AccountDetailScreen.js` — detalle de una cuenta.
-- `ProfileScreen.js` / `PreferencesScreen.js` — perfil y preferencias locales del usuario.
-- `Auth/LandingScreen.js`, `Auth/RegisterScreen.js`, `Auth/ForgotPasswordScreen.js`.
+- `HomeScreen.tsx` — balance general / listado de cuentas.
+- `TransactionsScreen.tsx` — listado de movimientos; **tocar una transacción abre un modal para editarla (título/monto/cuenta) o eliminarla**.
+- `AddRecordScreen.tsx` — crear transacción.
+- `DebtsScreen.tsx` / `DebtDetailScreen.tsx` / `AddDebtScreen.tsx` — cuentas de deuda (isLiability) y deudas persona-a-persona. `AddDebtScreen` en modo "Modificar" ahora precarga los datos existentes de la deuda (antes abría un formulario vacío).
+- `ReceivablesScreen.tsx` — deudas de tipo `me_deben` ("Me Deben").
+- `RemindersScreen.tsx` / `ReminderDetailScreen.tsx` / `AddReminderScreen.tsx` — recordatorios de pago.
+- `ChartsScreen.tsx` — **nueva**, pestaña "Análisis": flujo neto mensual (barras, últimos 6 meses) y distribución de balance por cuenta (dona), más tarjetas de resumen de deudas.
+- `AccountDetailScreen.tsx` — detalle de una cuenta.
+- `ProfileScreen.tsx` — perfil; "Cambiar contraseña" e "Información personal" ahora llaman de verdad al backend (antes eran formularios que no persistían nada). Incluye acciones de exportar datos.
+- `PreferencesScreen.tsx` — tema, privacidad por sección, notificaciones de recordatorios y **el nuevo toggle de bloqueo biométrico**.
+- `Auth/LandingScreen.tsx`, `Auth/RegisterScreen.tsx`, `Auth/ForgotPasswordScreen.tsx` (ahora sí llama al backend), `Auth/ResetPasswordScreen.tsx` (**nueva** — código de 6 dígitos + nueva contraseña).
 
 ### 4.3 Estado global (Context API, sin Redux)
-- `AuthContext.js` — sesión (login/register/logout), token y user en `AsyncStorage` (`userToken`, `userInfo`).
-- `PreferencesContext.js` — preferencias **locales al dispositivo** guardadas en `AsyncStorage` bajo la key `appPreferences`: tema (`light|dark|adaptive`), privacidad por pantalla (ocultar montos), notificaciones de recordatorios. Expone `colors` según el tema activo (`src/theme/theme.js` define `lightColors`/`darkColors`).
+- `AuthContext.tsx` — sesión (login/register/logout/forgotPassword/resetPassword), token y user en `AsyncStorage` (`userToken`, `userInfo`). Cada cambio de token llama `setAuthToken()` del cliente HTTP central (ver 4.4).
+- `PreferencesContext.tsx` — preferencias **locales al dispositivo** en `AsyncStorage` bajo `appPreferences`: tema (`light|dark|adaptive`), privacidad por pantalla, notificaciones de recordatorios, y **`biometricLockEnabled`** (nuevo). Expone `colors` según el tema activo (`src/theme/theme.ts`).
 
-### 4.4 Cliente HTTP
-Todas las pantallas y `AuthContext.js` llaman al backend con `axios` directo (no hay una instancia central de axios en uso) pero comparten una sola constante `API_URL`, importada desde **`src/config/api.js`**:
+### 4.4 Cliente HTTP centralizado
+`src/services/apiClient.ts` es ahora la **única** forma en que la app habla con el backend. Es una instancia de `axios` con `baseURL` = `API_URL` (`src/config/api.ts`, hostname Bonjour del Mac — ver sección 8) y un interceptor de request que agrega `Authorization: Bearer <token>` automáticamente, leyendo un token en memoria actualizado por `setAuthToken()` (llamado desde `AuthContext` en login/register/logout/carga inicial). Ninguna pantalla arma headers a mano ni importa `axios` directo — antes cada una repetía `axios.get(...)` con el header pegado, en 12 archivos distintos.
 
-```js
-export const API_URL = 'http://Stivens-MacBook-Air.local:5005/api';
-```
+`src/utils/apiError.ts` centraliza la extracción del mensaje de error (`getErrorMessage(error, fallback)`), usado en los `catch` de las pantallas en vez de repetir `error.response?.data?.message || '...'`.
 
-Se usa el hostname Bonjour (`.local`) del Mac en vez de una IP fija porque la IP de Wi-Fi cambia con cada reasignación de DHCP (esto ya rompió la app dos veces — ver historial en sección 6). El `.local` se resuelve solo mientras el iPhone y el Mac estén en la misma red. Si deja de resolver, cambiar el valor por la IP LAN actual del Mac (`ipconfig getifaddr en0`).
+### 4.5 Bloqueo biométrico
+`src/components/BiometricGate.tsx` envuelve el stack autenticado completo en `AppNavigator`. Si `preferences.biometricLockEnabled` está activo, pide Face ID/Touch ID (`src/services/biometricAuth.ts`, sobre `expo-local-authentication`) al abrir la app y cada vez que vuelve de segundo plano (`AppState`). El toggle está en `PreferencesScreen` y, al activarlo, primero verifica que el dispositivo tenga biometría configurada y pide una autenticación de confirmación antes de guardar la preferencia.
 
-`src/services/apiClient.js` sigue existiendo pero **no lo usa ninguna pantalla** (código muerto, ver sección 6). Además tiene dos bugs si algún día se retoma: lee `process.env.API_BASE_URL` sin el prefijo `EXPO_PUBLIC_` que Expo exige para inyectar variables de entorno al bundle del cliente (por eso siempre caía al fallback `localhost`, inútil en dispositivo físico), y el interceptor no envía el header `Authorization`.
+### 4.6 Notificaciones locales
+`src/services/notifications.ts` (sobre `expo-notifications`) programa un aviso local un día antes del vencimiento de cada recordatorio no pagado (`syncReminderNotifications`, llamado tras cada fetch de recordatorios en `HomeScreen` y `RemindersScreen`). Pide permiso la primera vez que el usuario activa el toggle "Notificaciones de Recordatorios" en Preferencias. Son notificaciones **locales al dispositivo** (no push desde el backend) — se reprograman solas cada vez que se listan los recordatorios, así que no hay que preocuparse por vencer/reprogramar manualmente.
+
+### 4.7 Exportar datos
+`src/services/exportService.ts`: `exportAllDataAsJson()` (respaldo completo: cuentas, transacciones, deudas, recordatorios en un `.json`) y `exportTransactionsAsCsv()` (solo transacciones en `.csv`, para Excel/Sheets). Ambas escriben a `expo-file-system` (API moderna, clases `File`/`Paths`, no la API "legacy" de versiones viejas de Expo) y abren el share sheet nativo con `expo-sharing`. Botones en `ProfileScreen`. El formateo CSV puro (`toCsv`/`toCsvValue`) vive en `src/utils/csv.ts`, separado de la I/O nativa, justamente para poder testearlo sin mockear módulos nativos.
 
 ## 5. Cómo correr el proyecto en desarrollo
 
@@ -116,31 +133,34 @@ Se usa el hostname Bonjour (`.local`) del Mac en vez de una IP fija porque la IP
 # Backend
 cd backend
 npm install
-npm run dev        # nodemon, puerto definido en .env (PORT=5005)
+npm run dev          # tsx watch, puerto definido en .env (PORT=5005)
+npm test             # Jest + Supertest + Mongo en memoria (réplica, para probar transacciones)
+npm run typecheck
 
 # Mobile app
 cd mobile-app
 npm install
-npx expo start      # o: npm run ios / npm run android / npm run web
+npx expo start        # o: npm run ios / npm run android / npm run web
+npm test              # Jest (jest-expo)
+npm run typecheck
 ```
+
+Para que **"olvidé mi contraseña"** envíe correos de verdad, completa `EMAIL_USER`/`EMAIL_APP_PASSWORD` en `backend/.env` con una [contraseña de aplicación de Gmail](https://myaccount.google.com/apppasswords) (requiere verificación en 2 pasos activa en esa cuenta). Sin esto, el endpoint sigue funcionando (no falla), pero el correo no se envía y solo queda un log en la consola del backend.
 
 La app móvil necesita al backend corriendo y alcanzable en la red local — ver sección 8 para el detalle de despliegue en iPhone físico.
 
 ## 6. Deuda técnica / cosas a tener en cuenta
 
-1. **`api-backend/` es un prototipo abandonado.** Solo tiene modelo/rutas de `Transaction` y `Account`, sin auth. La app móvil no le apunta. Candidato a eliminar si se confirma que no se necesita, o a documentar por qué se conserva.
-2. ~~URL del backend duplicada e inconsistente en el móvil~~ — **resuelto 2026-08-14**: ahora hay una sola constante `API_URL` en `mobile-app/src/config/api.js` que todas las pantallas y `AuthContext.js` importan. Antes estaba repetida (hardcodeada) en 12 archivos distintos con IPs que ya se habían desincronizado dos veces (`192.168.2.62` en `.env`/`apiClient.js` sin usar vs `192.168.40.21` copiado en cada pantalla vs la IP real del Mac que ya era `192.168.40.22`). Se cambió además de IP fija a hostname Bonjour (`.local`) para que sobreviva a los cambios de IP por DHCP.
-3. **`apiClient.js` sigue sin usarse y sin inyectar el token JWT** — el interceptor de request tiene el `Authorization` header comentado, y ya no es la fuente de la URL (ver 4.4). Si en el futuro se decide adoptarlo como cliente HTTP central, hay que arreglar ambas cosas.
-4. **Preferencias duplicadas.** El backend (`User.preferences`) tiene `theme`, `hideAmounts`, `accountOrder`, `selectedAccounts` con su propio endpoint `PUT /api/auth/preferences`, pero la app usa únicamente `PreferencesContext` con `AsyncStorage` local — el backend nunca se llama. Si el objetivo es sincronizar preferencias entre dispositivos, falta esa integración; si no, se podría simplificar/quitar del modelo de backend.
-5. **Balance de cuentas no es una fuente derivada.** Se actualiza a mano en cada operación (crear/borrar transacción, pagar deuda, pagar recordatorio). Si se agrega una nueva forma de mover dinero, hay que recordar actualizar el balance ahí también.
-6. **`getDebtTransactions` matchea por texto** (`title` con regex del nombre de la deuda) en vez de por relación directa (`Transaction` no tiene campo `debt`). Riesgo: nombres de deuda parecidos o cambios de nombre rompen el historial.
-7. **Sin tests automatizados.** Los archivos `backend/test_api.js`, `test_api_fetch.js`, `test_controller.js`, `test_mongoose.js` son scripts manuales de prueba (no Jest/Mocha), pensados para ejecutarse a mano con `node`, no una suite real.
-8. **Scripts de refactor de un solo uso en `mobile-app/src/screens/`**: `fix_hooks.js`, `fix_imports.js`, `fix_privacy.js`, `fix_subcomponents.js`, `refactor_styles.js`, `update_add_debt.js`, `update_add_record.js`, `update_debt_detail.js`, `update_home_accounts.js`, `update_receivables.js`, `update_transactions_refresh.js`. Son scripts Node que reescribieron pantallas en algún momento del desarrollo; no forman parte de la app (nada los importa). Se pueden borrar con seguridad si ya cumplieron su propósito.
-9. **Sin repo git.** No hay control de versiones en la raíz del proyecto — considerar `git init` para tener historial y poder revertir cambios.
+1. **`api-backend/` es un prototipo abandonado.** Sigue ahí, sin tocar; sigue sin usarse. Candidato a eliminar si se confirma que no se necesita.
+2. **Preferencias duplicadas.** El backend (`User.preferences`) tiene `theme`, `hideAmounts`, `accountOrder`, `selectedAccounts` con su propio endpoint `PUT /api/auth/preferences`, pero la app usa únicamente `PreferencesContext` con `AsyncStorage` local — el backend nunca se llama para esto. Si el objetivo es sincronizar preferencias entre dispositivos, falta esa integración; si no, se podría simplificar/quitar del modelo de backend.
+3. **Sin backend en la nube.** El Mac tiene que estar prendido y en la misma red que el iPhone para que la app funcione (ver sección 8). Es una limitación de infraestructura conocida y aceptada por ahora, no un bug.
+4. **Cobertura de tests desigual a propósito.** El backend tiene una suite real cubriendo toda la lógica de dinero (22 tests). El móvil tiene tests solo para lógica pura sin dependencias nativas (`apiError`, `csv`, el interceptor de `apiClient`, un smoke test de componente) — no hay tests de integración de pantallas completas ni de navegación. Fue una decisión deliberada de prioridad (el dinero es lo crítico), no un olvido.
+5. **`react-native-chart-kit`** está bien pero es una librería relativamente estática (sin animaciones ricas ni interacción táctil sobre las barras/dona). Si en el futuro se quiere algo más pulido, la alternativa natural es Victory Native XL (requiere `@shopify/react-native-skia`, una dependencia nativa más pesada).
+6. **`SafeAreaView` deprecado.** React Native marcó como deprecado el `SafeAreaView` que se importa de `'react-native'` en varias pantallas (aparece como warning en consola). La librería correcta ya está instalada (`react-native-safe-area-context`) pero migrar cada pantalla no se hizo en este hardening por no ser código roto, solo una advertencia.
 
 ## 7. Notas sobre `api-backend/`
 
-Servidor Express mínimo (`server.js` con solo `/`, `/health` y manejo de 404/errores genérico), con modelos `Account`/`Transaction` y un controlador de transacciones sin autenticación. No tiene `authRoutes`, `debtRoutes` ni `reminderRoutes`. Todo indica que fue el punto de partida antes de que `backend/` se convirtiera en la API real y completa. Mantenido aquí solo como referencia histórica.
+Servidor Express mínimo (`server.js` con solo `/`, `/health` y manejo de 404/errores genérico), con modelos `Account`/`Transaction` y un controlador de transacciones sin autenticación. No tiene `authRoutes`, `debtRoutes` ni `reminderRoutes`. Todo indica que fue el punto de partida antes de que `backend/` se convirtiera en la API real y completa. Mantenido aquí solo como referencia histórica. Sigue en JavaScript (no se migró a TS — está fuera de uso).
 
 ## 8. Despliegue en el iPhone físico
 
@@ -151,8 +171,11 @@ Modelo actual: **no hay backend en la nube**. El iPhone corre la app nativa (com
 ### 8.1 Proyecto nativo iOS
 - `mobile-app/ios/` es un proyecto Xcode ya generado (`expo prebuild`), con CocoaPods instalado.
 - Bundle ID: `com.stiven.finanzas`. Nombre del esquema/target: `Finanzas`.
-- Firma ya configurada en el `.pbxproj`: `DEVELOPMENT_TEAM = ZLCWNMPT33`. Si Xcode pide reseleccionar el equipo de firma, es la misma cuenta Apple ya usada antes para generar `Finanzas.ipa`.
+- Firma ya configurada en el `.pbxproj`: `DEVELOPMENT_TEAM = ZLCWNMPT33`.
 - El Mac (`Stivens-MacBook-Air`) ya tiene registrado el dispositivo "iPhone de Stiven" en Xcode (aparece en `xcrun xctrace list devices`, aunque puede figurar "Offline" si no está conectado en ese momento).
-- Si una compilación falla con errores de tipo `module map file ... not found` / `no such module 'Expo'`, es un problema de caché de Xcode, no del código: borrar `~/Library/Developer/Xcode/DerivedData/Finanzas-*` y volver a compilar. Si persiste, correr `pod install` dentro de `mobile-app/ios/`.
-- Con una cuenta Apple gratuita (sin Apple Developer Program pagado), las apps instaladas por cable vía Xcode expiran a los 7 días y hay que reinstalar (repetir Run desde Xcode). Con cuenta paga ($99/año) duran un año y se puede pasar a distribución por TestFlight sin cable.
-- Carpetas `ios/build`, `ios/build_debug`, `ios/build_release`, `ios/Payload` y el archivo `Finanzas.ipa` en la raíz de `mobile-app/` son artefactos de compilaciones manuales anteriores; no son necesarios para compilar desde Xcode y se pueden borrar si se quiere limpiar espacio.
+- Plugins de config en `app.json`: `@react-native-community/datetimepicker`, `expo-asset`, `expo-local-authentication` (con `faceIDPermission`, agrega `NSFaceIDUsageDescription` a Info.plist), `expo-notifications`, `expo-font`.
+- **`@expo/vector-icons` y `expo-font` deben estar declarados como dependencias directas** en `package.json` (no solo transitivas de `expo`). Sin esto, `tsc`/herramientas fuera de Metro no resuelven `@expo/vector-icons`, y CocoaPods puede descartar el pod de `ExpoFont` al reinstalar — causando el crash en runtime `Cannot find native module 'ExpoFontLoader'` (ya ocurrió una vez durante este hardening, ya está resuelto).
+- Si una compilación falla con errores de tipo `module map file ... not found` / `no such module 'Expo'`, es un problema de caché de Xcode: borrar `~/Library/Developer/Xcode/DerivedData/Finanzas-*` y volver a compilar.
+- Si el linker falla con `Undefined symbols for architecture arm64` (p. ej. `facebook::react::Sealable::Sealable()`), es un desajuste entre Pods cacheados y los binarios prebuilt de React Native — solución: `rm -rf ios/Pods ios/Podfile.lock ~/Library/Caches/CocoaPods && cd ios && pod install` (reinstalación limpia), luego recompilar.
+- Con una cuenta Apple gratuita (sin Apple Developer Program pagado), las apps instaladas por cable vía Xcode expiran a los 7 días y hay que reinstalar (repetir Run desde Xcode, o `npx expo run:ios -d <device>`). Con cuenta paga ($99/año) duran un año y se puede pasar a distribución por TestFlight sin cable.
+- Carpetas `ios/build`, `ios/build_debug`, `ios/build_release`, `ios/Payload` y el archivo `Finanzas.ipa` en la raíz de `mobile-app/` son artefactos de compilaciones manuales anteriores; no son necesarios para compilar desde Xcode.

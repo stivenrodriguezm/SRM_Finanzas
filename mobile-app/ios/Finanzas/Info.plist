@@ -44,10 +44,12 @@
       <key>NSAllowsLocalNetworking</key>
       <true/>
     </dict>
-    <key>RCTNewArchEnabled</key>
-    <true/>
+    <key>NSFaceIDUsageDescription</key>
+    <string>Usa Face ID para desbloquear Finanzas.</string>
     <key>NSLocalNetworkUsageDescription</key>
     <string>La app necesita conectarse al servidor local (tu Mac) para funcionar durante el desarrollo.</string>
+    <key>RCTNewArchEnabled</key>
+    <true/>
     <key>UILaunchStoryboardName</key>
     <string>SplashScreen</string>
     <key>UIRequiredDeviceCapabilities</key>

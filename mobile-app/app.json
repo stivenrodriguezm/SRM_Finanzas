@@ -19,7 +19,15 @@
     },
     "plugins": [
       "@react-native-community/datetimepicker",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Usa Face ID para desbloquear Finanzas."
+        }
+      ],
+      "expo-notifications",
+      "expo-font"
     ]
   }
 }
