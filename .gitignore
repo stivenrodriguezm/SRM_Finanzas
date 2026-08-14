@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Environment secrets (cada subproyecto tiene su propio .env real, nunca se versiona)
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+
+# Editores
+.vscode/
+.idea/
+
+# Salida de build de TypeScript
+backend/dist/
+api-backend/dist/
+
+# Cobertura de tests
+coverage/
+
+# Artefactos de builds manuales de iOS (regenerables desde Xcode, no son fuente)
+mobile-app/.expo/
+mobile-app/ios/build_debug/
+mobile-app/ios/build_release/
+mobile-app/ios/Payload/
+mobile-app/*.ipa
+mobile-app/Build*.txt
+
+# Android build output
+mobile-app/android/build/
+mobile-app/android/app/build/
+mobile-app/android/.gradle/

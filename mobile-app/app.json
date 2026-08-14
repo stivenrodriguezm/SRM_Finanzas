@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "SRM Finanzas",
+    "slug": "finanzas-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.stiven.finanzas"
+    },
+    "android": {
+      "package": "com.stiven.finanzas"
+    },
+    "plugins": [
+      "@react-native-community/datetimepicker",
+      "expo-asset"
+    ]
+  }
+}
