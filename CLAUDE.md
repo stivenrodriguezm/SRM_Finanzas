@@ -23,8 +23,8 @@ cuando edites el archivo.
 
 ## Contexto rápido del proyecto
 
-- Dos backends existen en el repo: `backend/` es el que usa la app (TypeScript, puerto 5005), `api-backend/` es un
-  prototipo abandonado (sigue en JS). No lo confundas ni lo actualices pensando que es el activo.
+- Solo hay un backend en el repo: `backend/` (TypeScript, puerto 5005). El prototipo abandonado `api-backend/` que
+  existía antes ya se eliminó — no lo recrees ni lo confundas con nada.
 - Backend y mobile están **en TypeScript, `strict: true`**. Antes de dar por terminado un cambio en cualquiera de los
   dos, corre `npm run typecheck` (y `npm test`) en la carpeta correspondiente — ambos deben quedar limpios.
 - La URL del backend en la app móvil vive en un solo sitio: `mobile-app/src/config/api.ts` (hostname `.local` del Mac,

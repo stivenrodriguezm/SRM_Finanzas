@@ -16,10 +16,10 @@ Nombre visible de la app: **SRM Finanzas** (`mobile-app/app.json`, bundle id `co
 ```
 Finanzas personales/
 ├── backend/            ← API activa (Express 5 + TypeScript + MongoDB). Esta es la que usa la app móvil.
-├── api-backend/         ← Prototipo antiguo/abandonado. NO se usa. Ver sección 7.
-├── mobile-app/          ← App React Native + Expo + TypeScript (iOS/Android).
-└── package-lock.json    ← archivo suelto en la raíz, no pertenece a un package.json real ahí.
+└── mobile-app/          ← App React Native + Expo + TypeScript (iOS/Android).
 ```
+
+(`api-backend/`, el prototipo abandonado, y un `package-lock.json` suelto en la raíz que no pertenecía a ningún `package.json` ahí, ya se eliminaron.)
 
 Repo git inicializado en la raíz, con remoto `origin` en GitHub (`stivenrodriguezm/SRM_Finanzas`).
 
@@ -114,7 +114,7 @@ Todos bajo `http://<host>:5005/api`.
 - `PreferencesContext.tsx` — preferencias **locales al dispositivo** en `AsyncStorage` bajo `appPreferences`: tema (`light|dark|adaptive`), privacidad por pantalla, notificaciones de recordatorios, y **`biometricLockEnabled`** (nuevo). Expone `colors` según el tema activo (`src/theme/theme.ts`).
 
 ### 4.4 Cliente HTTP centralizado
-`src/services/apiClient.ts` es ahora la **única** forma en que la app habla con el backend. Es una instancia de `axios` con `baseURL` = `API_URL` (`src/config/api.ts`, hostname Bonjour del Mac — ver sección 8) y un interceptor de request que agrega `Authorization: Bearer <token>` automáticamente, leyendo un token en memoria actualizado por `setAuthToken()` (llamado desde `AuthContext` en login/register/logout/carga inicial). Ninguna pantalla arma headers a mano ni importa `axios` directo — antes cada una repetía `axios.get(...)` con el header pegado, en 12 archivos distintos.
+`src/services/apiClient.ts` es ahora la **única** forma en que la app habla con el backend. Es una instancia de `axios` con `baseURL` = `API_URL` (`src/config/api.ts`, hostname Bonjour del Mac — ver sección 7) y un interceptor de request que agrega `Authorization: Bearer <token>` automáticamente, leyendo un token en memoria actualizado por `setAuthToken()` (llamado desde `AuthContext` en login/register/logout/carga inicial). Ninguna pantalla arma headers a mano ni importa `axios` directo — antes cada una repetía `axios.get(...)` con el header pegado, en 12 archivos distintos.
 
 `src/utils/apiError.ts` centraliza la extracción del mensaje de error (`getErrorMessage(error, fallback)`), usado en los `catch` de las pantallas en vez de repetir `error.response?.data?.message || '...'`.
 
@@ -147,28 +147,23 @@ npm run typecheck
 
 Para que **"olvidé mi contraseña"** envíe correos de verdad, completa `EMAIL_USER`/`EMAIL_APP_PASSWORD` en `backend/.env` con una [contraseña de aplicación de Gmail](https://myaccount.google.com/apppasswords) (requiere verificación en 2 pasos activa en esa cuenta). Sin esto, el endpoint sigue funcionando (no falla), pero el correo no se envía y solo queda un log en la consola del backend.
 
-La app móvil necesita al backend corriendo y alcanzable en la red local — ver sección 8 para el detalle de despliegue en iPhone físico.
+La app móvil necesita al backend corriendo y alcanzable en la red local — ver sección 7 para el detalle de despliegue en iPhone físico.
 
 ## 6. Deuda técnica / cosas a tener en cuenta
 
-1. **`api-backend/` es un prototipo abandonado.** Sigue ahí, sin tocar; sigue sin usarse. Candidato a eliminar si se confirma que no se necesita.
-2. **Preferencias duplicadas.** El backend (`User.preferences`) tiene `theme`, `hideAmounts`, `accountOrder`, `selectedAccounts` con su propio endpoint `PUT /api/auth/preferences`, pero la app usa únicamente `PreferencesContext` con `AsyncStorage` local — el backend nunca se llama para esto. Si el objetivo es sincronizar preferencias entre dispositivos, falta esa integración; si no, se podría simplificar/quitar del modelo de backend.
-3. **Sin backend en la nube.** El Mac tiene que estar prendido y en la misma red que el iPhone para que la app funcione (ver sección 8). Es una limitación de infraestructura conocida y aceptada por ahora, no un bug.
-4. **Cobertura de tests desigual a propósito.** El backend tiene una suite real cubriendo toda la lógica de dinero (22 tests). El móvil tiene tests solo para lógica pura sin dependencias nativas (`apiError`, `csv`, el interceptor de `apiClient`, un smoke test de componente) — no hay tests de integración de pantallas completas ni de navegación. Fue una decisión deliberada de prioridad (el dinero es lo crítico), no un olvido.
-5. **`react-native-chart-kit`** está bien pero es una librería relativamente estática (sin animaciones ricas ni interacción táctil sobre las barras/dona). Si en el futuro se quiere algo más pulido, la alternativa natural es Victory Native XL (requiere `@shopify/react-native-skia`, una dependencia nativa más pesada).
-6. **`SafeAreaView` deprecado.** React Native marcó como deprecado el `SafeAreaView` que se importa de `'react-native'` en varias pantallas (aparece como warning en consola). La librería correcta ya está instalada (`react-native-safe-area-context`) pero migrar cada pantalla no se hizo en este hardening por no ser código roto, solo una advertencia.
+1. **Preferencias duplicadas.** El backend (`User.preferences`) tiene `theme`, `hideAmounts`, `accountOrder`, `selectedAccounts` con su propio endpoint `PUT /api/auth/preferences`, pero la app usa únicamente `PreferencesContext` con `AsyncStorage` local — el backend nunca se llama para esto. Si el objetivo es sincronizar preferencias entre dispositivos, falta esa integración; si no, se podría simplificar/quitar del modelo de backend.
+2. **Sin backend en la nube.** El Mac tiene que estar prendido y en la misma red que el iPhone para que la app funcione (ver sección 7). Es una limitación de infraestructura conocida y aceptada por ahora, no un bug.
+3. **Cobertura de tests desigual a propósito.** El backend tiene una suite real cubriendo toda la lógica de dinero (22 tests). El móvil tiene tests solo para lógica pura sin dependencias nativas (`apiError`, `csv`, el interceptor de `apiClient`, un smoke test de componente) — no hay tests de integración de pantallas completas ni de navegación. Fue una decisión deliberada de prioridad (el dinero es lo crítico), no un olvido.
+4. **`react-native-chart-kit`** está bien pero es una librería relativamente estática (sin animaciones ricas ni interacción táctil sobre las barras/dona). Si en el futuro se quiere algo más pulido, la alternativa natural es Victory Native XL (requiere `@shopify/react-native-skia`, una dependencia nativa más pesada).
+5. **`SafeAreaView` deprecado.** React Native marcó como deprecado el `SafeAreaView` que se importa de `'react-native'` en varias pantallas (aparece como warning en consola). La librería correcta ya está instalada (`react-native-safe-area-context`) pero migrar cada pantalla no se hizo en este hardening por no ser código roto, solo una advertencia.
 
-## 7. Notas sobre `api-backend/`
-
-Servidor Express mínimo (`server.js` con solo `/`, `/health` y manejo de 404/errores genérico), con modelos `Account`/`Transaction` y un controlador de transacciones sin autenticación. No tiene `authRoutes`, `debtRoutes` ni `reminderRoutes`. Todo indica que fue el punto de partida antes de que `backend/` se convirtiera en la API real y completa. Mantenido aquí solo como referencia histórica. Sigue en JavaScript (no se migró a TS — está fuera de uso).
-
-## 8. Despliegue en el iPhone físico
+## 7. Despliegue en el iPhone físico
 
 Modelo actual: **no hay backend en la nube**. El iPhone corre la app nativa (compilada e instalada desde Xcode) y le habla al backend Express que corre en el Mac, en la misma red Wi-Fi. Esto implica dos requisitos permanentes mientras no se despliegue el backend a un host real:
 - El Mac tiene que estar encendido y con `backend/` corriendo (`npm run dev`, puerto 5005) para que la app funcione.
 - El iPhone y el Mac tienen que estar en la misma red Wi-Fi (el hostname `.local` de la sección 4.4 no resuelve a través de redes distintas ni por datos móviles).
 
-### 8.1 Proyecto nativo iOS
+### 7.1 Proyecto nativo iOS
 - `mobile-app/ios/` es un proyecto Xcode ya generado (`expo prebuild`), con CocoaPods instalado.
 - Bundle ID: `com.stiven.finanzas`. Nombre del esquema/target: `Finanzas`.
 - Firma ya configurada en el `.pbxproj`: `DEVELOPMENT_TEAM = ZLCWNMPT33`.
