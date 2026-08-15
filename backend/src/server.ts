@@ -7,7 +7,11 @@ import app from './app';
 connectDB();
 
 const PORT = Number(process.env.PORT) || 5000;
+// En el Mac (LAN) debe ser 0.0.0.0 para que el iPhone lo alcance por la red local.
+// En la VPS debe ser 127.0.0.1: solo Nginx (reverse proxy) queda expuesto a internet,
+// el proceso de Node nunca escucha directamente en la interfaz pública.
+const HOST = process.env.HOST || '0.0.0.0';
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Servidor corriendo en el puerto ${PORT}`);
+app.listen(PORT, HOST, () => {
+  console.log(`Servidor corriendo en http://${HOST}:${PORT}`);
 });
