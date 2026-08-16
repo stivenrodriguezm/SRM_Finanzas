@@ -10,3 +10,9 @@ export const createAccountSchema = z.object({
 });
 
 export const updateAccountSchema = createAccountSchema.partial();
+
+export const payLiabilityAccountSchema = z.object({
+  amount: z.coerce.number().positive('El monto debe ser un número positivo'),
+  sourceAccountId: z.string().min(1, 'La cuenta de origen es requerida'),
+  date: z.coerce.date().optional(),
+});

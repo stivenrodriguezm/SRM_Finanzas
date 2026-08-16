@@ -1,6 +1,6 @@
 # Finanzas Personales — Documentación del proyecto
 
-> Última actualización: 2026-08-16 (modo oscuro)
+> Última actualización: 2026-08-16 (abono directo a cuentas de deuda)
 > Este archivo es la fuente de verdad sobre qué es la app, cómo está construida y qué falta.
 > Si algo aquí no coincide con el código, el código manda — y este archivo debe corregirse (ver [CLAUDE.md](CLAUDE.md)).
 
@@ -58,6 +58,7 @@ Todos bajo `http://<host>:5005/api`.
 
 **Accounts** (`/accounts`)
 - `GET /` (filtro opcional `?isLiability=true|false`), `POST /`, `PUT /:id`, `DELETE /:id`.
+- `POST /:id/payment` — abono a una cuenta de deuda (`isLiability: true`) pagado desde otra cuenta propia (`{ amount, sourceAccountId, date? }`). Baja el `balance` de la cuenta de deuda (sin bajar de 0) y el de la cuenta de origen, y crea dos `Transaction` (`abono_deuda` en la cuenta de deuda, `egreso` en la de origen). Todo en una transacción de Mongo. Rechaza si la cuenta destino no es `isLiability` o si origen y destino son la misma cuenta. **No confundir con `POST /debts/:id/payment`** (abajo): ese es para el modelo `Debt` (préstamos persona-a-persona), este es para `Account` con `isLiability: true` (tarjetas, hipotecas, etc.) — son dos conceptos de "deuda" separados en esta app (ver 4.2).
 
 **Transactions** (`/transactions`)
 - `GET /` (poblado con `account`).
@@ -99,7 +100,7 @@ Todos bajo `http://<host>:5005/api`.
 ### 4.2 Pantallas (`src/screens/`)
 - `HomeScreen.tsx` — balance general / listado de cuentas.
 - `TransactionsScreen.tsx` — listado de movimientos; **tocar una transacción abre un modal para editarla (título/monto/cuenta) o eliminarla**.
-- `AddRecordScreen.tsx` — crear transacción.
+- `AddRecordScreen.tsx` — crear transacción. El tipo "Abono a Deuda" tiene **dos modos** según cómo se llegó a la pantalla: si `route.params.preselectedAccount` es una cuenta con `isLiability: true` (llegaste con el botón "Abonar" de `AccountDetailScreen`), la pantalla fija esa cuenta como destino y solo pide "Cuenta Origen", llamando a `POST /accounts/:id/payment`; si no, es el flujo original de abonar a un préstamo del modelo `Debt` ("Cuenta Origen" + selector de deuda), llamando a `POST /debts/:id/payment`. Ver la nota de la sección 3.2 sobre por qué son dos endpoints distintos.
 - `DebtsScreen.tsx` / `DebtDetailScreen.tsx` / `AddDebtScreen.tsx` — cuentas de deuda (isLiability) y deudas persona-a-persona. `AddDebtScreen` en modo "Modificar" ahora precarga los datos existentes de la deuda (antes abría un formulario vacío).
 - `ReceivablesScreen.tsx` — deudas de tipo `me_deben` ("Me Deben").
 - `RemindersScreen.tsx` / `ReminderDetailScreen.tsx` / `AddReminderScreen.tsx` — recordatorios de pago.
@@ -172,7 +173,7 @@ La app móvil necesita al backend corriendo y alcanzable en la red local — ver
 2. **Sin backend en la nube.** El Mac tiene que estar prendido y en la misma red que el iPhone para que la app funcione (ver sección 7). Es una limitación de infraestructura conocida y aceptada por ahora, no un bug.
 3. **Cobertura de tests desigual a propósito.** El backend tiene una suite real cubriendo toda la lógica de dinero (22 tests). El móvil tiene tests solo para lógica pura sin dependencias nativas (`apiError`, `csv`, el interceptor de `apiClient`, un smoke test de componente) — no hay tests de integración de pantallas completas ni de navegación. Fue una decisión deliberada de prioridad (el dinero es lo crítico), no un olvido.
 4. **`react-native-chart-kit`** está bien pero es una librería relativamente estática (sin animaciones ricas ni interacción táctil sobre las barras/dona). Si en el futuro se quiere algo más pulido, la alternativa natural es Victory Native XL (requiere `@shopify/react-native-skia`, una dependencia nativa más pesada).
-5. **`SafeAreaView` deprecado.** React Native marcó como deprecado el `SafeAreaView` que se importa de `'react-native'` en varias pantallas (aparece como warning en consola). La librería correcta ya está instalada (`react-native-safe-area-context`) pero migrar cada pantalla no se hizo en este hardening por no ser código roto, solo una advertencia.
+5. **`SafeAreaView` deprecado (migración parcial en curso).** El `SafeAreaView` de `'react-native'` no calcula bien los insets del notch/Dynamic Island cuando la pantalla está anidada dentro de navegadores (tab + stack) — esto no es solo una advertencia de consola, causó un bug real (header recortado/tapado por el borde en `TransactionsScreen`). `App.tsx` ya envuelve la app en `SafeAreaProvider` (`react-native-safe-area-context`) y `TransactionsScreen.tsx` ya usa el `SafeAreaView` de esa librería. **El resto de pantallas todavía usa el `SafeAreaView` de `'react-native'`** — si aparece el mismo síntoma (contenido cortado cerca del borde/notch) en otra pantalla, migrarla de la misma forma (cambiar el import a `react-native-safe-area-context`; el `SafeAreaProvider` raíz ya existe).
 
 ## 7. Despliegue en el iPhone físico
 

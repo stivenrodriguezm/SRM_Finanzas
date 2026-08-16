@@ -70,11 +70,29 @@ export default function AddRecordScreen() {
   const [selectedDestAccount, setSelectedDestAccount] = useState(preselectedAccount || '');
   const [selectedDebt, setSelectedDebt] = useState(''); // ID de la deuda a abonar
 
+  // El botón "Abonar" de una cuenta de deuda navega aquí con preselectedAccount. En ese
+  // caso no se abona a un préstamo del modelo Debt, sino directamente a esa cuenta.
+  const preselectedLiabilityAccount = accounts.find((a) => a._id === preselectedAccount && a.isLiability);
+  const isLiabilityPayment = recordType === 'abono_deuda' && !!preselectedLiabilityAccount;
+  const originAccountOptions = isLiabilityPayment
+    ? accounts.filter((a) => a._id !== preselectedAccount)
+    : accounts;
+
   React.useEffect(() => {
     fetchAccounts();
     fetchDebts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
+
+  // Si "preselectedAccount" resulta ser la cuenta de deuda a abonar (llegó desde el botón
+  // "Abonar" de una cuenta de deuda), "Cuenta Origen" no puede quedar precargada con esa
+  // misma cuenta — el dinero tiene que salir de otra.
+  React.useEffect(() => {
+    if (isLiabilityPayment && selectedOriginAccount === preselectedAccount) {
+      setSelectedOriginAccount('');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLiabilityPayment]);
 
   const fetchAccounts = async () => {
     if (!token) return;
@@ -115,7 +133,7 @@ export default function AddRecordScreen() {
       return;
     }
 
-    if (recordType === 'abono_deuda' && !selectedDebt) {
+    if (recordType === 'abono_deuda' && !isLiabilityPayment && !selectedDebt) {
       Alert.alert('Error', 'Por favor selecciona la deuda a abonar.');
       return;
     }
@@ -126,7 +144,13 @@ export default function AddRecordScreen() {
     const backendType = recordType === 'gasto' ? 'egreso' : recordType;
 
     try {
-      if (recordType === 'abono_deuda') {
+      if (isLiabilityPayment) {
+        await apiClient.post(`/accounts/${preselectedAccount}/payment`, {
+          amount: Number(amount.replace(/\D/g, '')),
+          sourceAccountId: accountSelected,
+          date: new Date(),
+        });
+      } else if (recordType === 'abono_deuda') {
         await apiClient.post(`/debts/${selectedDebt}/payment`, {
           amount: Number(amount.replace(/\D/g, '')),
           accountId: accountSelected,
@@ -250,6 +274,19 @@ export default function AddRecordScreen() {
             </View>
           )}
 
+          {/* Cuenta de deuda a abonar — fija, ya viene decidida desde el botón "Abonar" de esa cuenta */}
+          {isLiabilityPayment && preselectedLiabilityAccount && (
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Cuenta de Deuda</Text>
+              <View style={[styles.inputContainer, styles.inputContainerReadOnly]}>
+                <Ionicons name={(preselectedLiabilityAccount.icon || 'card') as any} size={20} color={preselectedLiabilityAccount.color || colors.danger} style={styles.inputIcon} />
+                <Text style={styles.textInput}>
+                  {preselectedLiabilityAccount.name} (Debo $ {preselectedLiabilityAccount.balance.toLocaleString('es-CO')})
+                </Text>
+              </View>
+            </View>
+          )}
+
           {/* Cuenta Origen — Gasto o Abono a Deuda */}
           {(recordType === 'gasto' || recordType === 'abono_deuda') && (
             <View style={styles.inputGroup}>
@@ -284,8 +321,8 @@ export default function AddRecordScreen() {
             </View>
           )}
 
-          {/* Deuda a abonar — solo para Abono a Deuda */}
-          {recordType === 'abono_deuda' && (
+          {/* Deuda a abonar — solo para Abono a Deuda a un préstamo del modelo Debt (no a una cuenta de deuda) */}
+          {recordType === 'abono_deuda' && !isLiabilityPayment && (
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Deuda / Préstamo abonado</Text>
               <TouchableOpacity
@@ -323,7 +360,7 @@ export default function AddRecordScreen() {
           <View style={styles.modalSheet}>
             <Text style={styles.modalTitle}>Selecciona una Cuenta</Text>
             <ScrollView>
-              {accounts.map((acc) => (
+              {(modalTarget === 'origin' ? originAccountOptions : accounts).map((acc) => (
                 <TouchableOpacity
                   key={acc._id}
                   style={styles.modalItem}
@@ -338,7 +375,7 @@ export default function AddRecordScreen() {
                   </View>
                 </TouchableOpacity>
               ))}
-              {accounts.length === 0 && (
+              {(modalTarget === 'origin' ? originAccountOptions : accounts).length === 0 && (
                 <Text style={{ textAlign: 'center', color: colors.textMuted, padding: 20 }}>
                   No tienes cuentas registradas
                 </Text>
@@ -469,6 +506,9 @@ const getStyles = (colors: Colors) => StyleSheet.create({
     paddingVertical: 14,
     borderWidth: 1,
     borderColor: colors.border,
+  },
+  inputContainerReadOnly: {
+    backgroundColor: colors.iconBg,
   },
   inputIcon: {
     marginRight: 12,
