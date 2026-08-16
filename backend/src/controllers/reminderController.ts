@@ -12,7 +12,8 @@ export const getReminders = catchAsync(async (req: Request, res: Response) => {
 });
 
 export const setReminder = catchAsync(async (req: Request, res: Response) => {
-  const { title, date, type, amount, isPaid, paymentLink, description, dayOfMonth } = req.body;
+  const { title, date, type, amount, isPaid, paymentLink, description, dayOfMonth, notificationConfig, snoozedUntil } =
+    req.body;
 
   let reminderDate = date;
   if (type === 'periodico' && !date && dayOfMonth) {
@@ -32,6 +33,8 @@ export const setReminder = catchAsync(async (req: Request, res: Response) => {
     paymentLink,
     description,
     dayOfMonth,
+    notificationConfig,
+    snoozedUntil,
   });
 
   res.status(201).json(reminder);
@@ -56,6 +59,7 @@ export const markReminderPaid = catchAsync(async (req: Request, res: Response) =
   if (reminder.user.toString() !== req.user!.id) throw new AppError('Usuario no autorizado', 401);
 
   reminder.isPaid = true;
+  reminder.snoozedUntil = undefined;
 
   if (reminder.type === 'periodico' && reminder.dayOfMonth) {
     const currentDate = new Date(reminder.date);
@@ -105,6 +109,8 @@ export const payReminder = catchAsync(async (req: Request, res: Response) => {
 
     account.balance -= amount;
     await account.save({ session });
+
+    reminder.snoozedUntil = undefined;
 
     if (reminder.type === 'unico') {
       reminder.isPaid = true;

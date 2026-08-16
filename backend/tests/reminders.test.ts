@@ -43,4 +43,92 @@ describe('Reminders', () => {
     const res = await authed(app, token).post('/api/reminders').send({ title: 'Sin fecha', type: 'unico' });
     expect(res.status).toBe(400);
   });
+
+  it('crear un recordatorio sin notificationConfig aplica los defaults', async () => {
+    const { token } = await createUser(app);
+    const res = await authed(app, token)
+      .post('/api/reminders')
+      .send({ title: 'Netflix', type: 'unico', date: new Date().toISOString() });
+
+    expect(res.status).toBe(201);
+    expect(res.body.notificationConfig).toMatchObject({
+      mode: 'default',
+      daysBefore: 1,
+      hour: 9,
+      startHour: 8,
+      endHour: 21,
+      initialIntervalMinutes: 120,
+      minIntervalMinutes: 60,
+    });
+  });
+
+  it('crear un recordatorio con notificationConfig personalizado lo persiste', async () => {
+    const { token } = await createUser(app);
+    const res = await authed(app, token)
+      .post('/api/reminders')
+      .send({
+        title: 'Arriendo',
+        type: 'unico',
+        date: new Date().toISOString(),
+        notificationConfig: {
+          mode: 'escalating',
+          startHour: 7,
+          endHour: 22,
+          initialIntervalMinutes: 120,
+          minIntervalMinutes: 30,
+        },
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.notificationConfig).toMatchObject({
+      mode: 'escalating',
+      startHour: 7,
+      endHour: 22,
+      initialIntervalMinutes: 120,
+      minIntervalMinutes: 30,
+    });
+  });
+
+  it('rechaza notificationConfig inválido (endHour <= startHour)', async () => {
+    const { token } = await createUser(app);
+    const res = await authed(app, token)
+      .post('/api/reminders')
+      .send({
+        title: 'Arriendo',
+        type: 'unico',
+        date: new Date().toISOString(),
+        notificationConfig: { mode: 'escalating', startHour: 20, endHour: 10 },
+      });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('PUT /:id guarda snoozedUntil, y pagar lo limpia', async () => {
+    const { token } = await createUser(app);
+    const api = authed(app, token);
+    const account = await api.post('/api/accounts').send({ name: 'Cuenta', balance: 1000 });
+    const reminder = await api.post('/api/reminders').send({ title: 'Netflix', type: 'unico', date: new Date().toISOString() });
+
+    const snoozeDate = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString();
+    const updated = await api.put(`/api/reminders/${reminder.body._id}`).send({ snoozedUntil: snoozeDate });
+    expect(updated.status).toBe(200);
+    expect(new Date(updated.body.snoozedUntil).getTime()).toBe(new Date(snoozeDate).getTime());
+
+    const pay = await api
+      .post(`/api/reminders/${reminder.body._id}/pay`)
+      .send({ amount: 45, accountId: account.body._id });
+    expect(pay.body.reminder.snoozedUntil).toBeFalsy();
+  });
+
+  it('mark-paid también limpia snoozedUntil', async () => {
+    const { token } = await createUser(app);
+    const api = authed(app, token);
+    const reminder = await api.post('/api/reminders').send({ title: 'Netflix', type: 'unico', date: new Date().toISOString() });
+
+    const snoozeDate = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString();
+    await api.put(`/api/reminders/${reminder.body._id}`).send({ snoozedUntil: snoozeDate });
+
+    const marked = await api.put(`/api/reminders/${reminder.body._id}/mark-paid`);
+    expect(marked.body.snoozedUntil).toBeFalsy();
+  });
 });
