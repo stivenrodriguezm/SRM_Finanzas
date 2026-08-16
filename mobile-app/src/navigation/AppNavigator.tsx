@@ -127,7 +127,15 @@ export default function AppNavigator() {
           ...commonHeaderStyle,
         })}
       />
-      <Stack.Screen name="ReminderDetail" component={ReminderDetailScreen} options={{ title: 'Detalle', ...commonHeaderStyle }} />
+      <Stack.Screen
+        name="ReminderDetail"
+        component={ReminderDetailScreen}
+        options={({ navigation: nav }) => ({
+          title: 'Detalle',
+          ...commonHeaderStyle,
+          headerLeft: () => backButton(() => nav.goBack()),
+        })}
+      />
 
       <Stack.Screen
         name="Perfil"
@@ -186,7 +194,12 @@ export default function AppNavigator() {
       <Stack.Screen
         name="AccountDetail"
         component={AccountDetailScreen}
-        options={{ headerShown: true, title: 'Detalle de Cuenta', ...commonHeaderStyle }}
+        options={({ navigation: nav }) => ({
+          headerShown: true,
+          title: 'Detalle de Cuenta',
+          ...commonHeaderStyle,
+          headerLeft: () => backButton(() => nav.goBack()),
+        })}
       />
     </Stack.Navigator>
     </BiometricGate>

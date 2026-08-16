@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useLayoutEffect } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView,
   TouchableOpacity, Modal, TextInput, Switch, KeyboardAvoidingView,
@@ -132,6 +132,19 @@ export default function AccountDetailScreen() {
       ]
     );
   };
+
+  // Botón de eliminar visible en el header — antes solo estaba al final del modal "Modificar", muy poco visible.
+  useLayoutEffect(() => {
+    if (!account) return;
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity onPress={handleDelete} style={{ paddingHorizontal: 12, paddingVertical: 4 }} hitSlop={8}>
+          <Ionicons name="trash-outline" size={22} color={colors.danger} />
+        </TouchableOpacity>
+      ),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navigation, account]);
 
   if (isLoading || !account) {
     return (
