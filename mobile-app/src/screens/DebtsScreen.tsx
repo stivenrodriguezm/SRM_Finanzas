@@ -86,10 +86,10 @@ export default function DebtsScreen() {
           <Text style={styles.headerTitle}>Gestión de Deudas</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <TouchableOpacity onPress={() => setIsPrivate(!isPrivate)} style={styles.eyeButton}>
-              <Ionicons name={isPrivate ? 'eye-off-outline' : 'eye-outline'} size={24} color="#94A3B8" />
+              <Ionicons name={isPrivate ? 'eye-off-outline' : 'eye-outline'} size={24} color={colors.textMuted} />
             </TouchableOpacity>
             <TouchableOpacity onPress={toggleSelectionMode} style={[styles.eyeButton, { marginLeft: 12 }]}>
-              <Ionicons name={isSelectionMode ? "checkmark-done-outline" : "options-outline"} size={24} color={isSelectionMode ? colors.primary : "#94A3B8"} />
+              <Ionicons name={isSelectionMode ? "checkmark-done-outline" : "options-outline"} size={24} color={isSelectionMode ? colors.primary : colors.textMuted} />
             </TouchableOpacity>
           </View>
         </View>
@@ -115,7 +115,7 @@ export default function DebtsScreen() {
 
             {debtAccounts.length === 0 ? (
               <View style={styles.emptyState}>
-                <Ionicons name="checkmark-circle-outline" size={48} color="#9CA3AF" />
+                <Ionicons name="checkmark-circle-outline" size={48} color={colors.textMuted} />
                 <Text style={styles.emptyText}>No tienes cuentas de deuda activas</Text>
                 <Text style={styles.emptySubText}>Crea una cuenta y márcala como "cuenta de deuda" en Inicio</Text>
               </View>
@@ -176,7 +176,7 @@ export default function DebtsScreen() {
           style={styles.addButton}
           onPress={() => navigation.navigate('Balance')}
         >
-          <Ionicons name="add" size={24} color="#FFFFFF" />
+          <Ionicons name="add" size={24} color={colors.primaryText} />
           <Text style={styles.addButtonText}>Agregar Cuenta de Deuda</Text>
         </TouchableOpacity>
       </View>
@@ -287,5 +287,5 @@ const getStyles = (colors: Colors) => StyleSheet.create({
     shadowRadius: 10,
     elevation: 5,
   },
-  addButtonText: { color: colors.white, fontSize: 16, fontWeight: '600', marginLeft: 8 },
+  addButtonText: { color: colors.primaryText, fontSize: 16, fontWeight: '600', marginLeft: 8 },
 });

@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { usePreferences } from '../context/PreferencesContext';
-import { requestNotificationPermissions } from '../services/notifications';
+import { requestNotificationPermissions, cancelAllReminderNotifications } from '../services/notifications';
 import { isBiometricAvailable, authenticateWithBiometrics } from '../services/biometricAuth';
 
 type Colors = ReturnType<typeof usePreferences>['colors'];
@@ -30,7 +30,7 @@ function ThemePill({ label, value, icon, currentTheme, onSelect }: ThemePillProp
       onPress={() => onSelect(value)}
       activeOpacity={0.75}
     >
-      <Ionicons name={icon} size={16} color={isActive ? '#FFFFFF' : '#6B7280'} />
+      <Ionicons name={icon} size={16} color={isActive ? colors.primaryText : colors.textSecondary} />
       <Text style={[styles.themePillText, isActive && styles.themePillTextActive]}>{label}</Text>
     </TouchableOpacity>
   );
@@ -59,8 +59,8 @@ function PrivacyRow({ icon, iconBg, iconColor, label, sectionKey, value, onToggl
       <Switch
         value={value}
         onValueChange={(v) => onToggle(sectionKey, v)}
-        trackColor={{ false: '#E5E7EB', true: '#059669' }}
-        thumbColor="#FFFFFF"
+        trackColor={{ false: colors.border, true: colors.success }}
+        thumbColor={colors.white}
         style={Platform.OS === 'android' ? { transform: [{ scale: 0.9 }] } : undefined}
       />
     </View>
@@ -80,6 +80,8 @@ export default function PreferencesScreen() {
           'Activa las notificaciones para esta app en Ajustes del iPhone para recibir avisos de recordatorios.'
         );
       }
+    } else {
+      cancelAllReminderNotifications().catch(() => {});
     }
     updatePreference('remindersNotifications', value);
   };
@@ -103,7 +105,7 @@ export default function PreferencesScreen() {
 
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Ionicons name="color-palette-outline" size={20} color="#7C3AED" />
+            <Ionicons name="color-palette-outline" size={20} color={colors.purple} />
             <Text style={styles.sectionTitle}>Tema Visual</Text>
           </View>
           <View style={styles.themeRow}>
@@ -115,27 +117,27 @@ export default function PreferencesScreen() {
 
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Ionicons name="eye-off-outline" size={20} color="#DC2626" />
+            <Ionicons name="eye-off-outline" size={20} color={colors.danger} />
             <Text style={styles.sectionTitle}>Privacidad por Sección</Text>
           </View>
           <Text style={styles.sectionDesc}>
             Elige si los valores monetarios arrancan ocultos (****) en cada pantalla al abrirla.
           </Text>
 
-          <PrivacyRow icon="home-outline" iconBg="#EFF6FF" iconColor="#3B82F6" label="Inicio (Patrimonio Neto)" sectionKey="home" value={preferences.privacy.home} onToggle={updatePrivacy} />
+          <PrivacyRow icon="home-outline" iconBg={colors.infoLight} iconColor={colors.info} label="Inicio (Patrimonio Neto)" sectionKey="home" value={preferences.privacy.home} onToggle={updatePrivacy} />
           <View style={styles.privacySeparator} />
-          <PrivacyRow icon="list-outline" iconBg="#F5F3FF" iconColor="#7C3AED" label="Transacciones" sectionKey="transactions" value={preferences.privacy.transactions} onToggle={updatePrivacy} />
+          <PrivacyRow icon="list-outline" iconBg={colors.purpleLight} iconColor={colors.purple} label="Transacciones" sectionKey="transactions" value={preferences.privacy.transactions} onToggle={updatePrivacy} />
           <View style={styles.privacySeparator} />
-          <PrivacyRow icon="card-outline" iconBg="#FEF2F2" iconColor="#DC2626" label="Deudas" sectionKey="debts" value={preferences.privacy.debts} onToggle={updatePrivacy} />
+          <PrivacyRow icon="card-outline" iconBg={colors.dangerLight} iconColor={colors.danger} label="Deudas" sectionKey="debts" value={preferences.privacy.debts} onToggle={updatePrivacy} />
           <View style={styles.privacySeparator} />
-          <PrivacyRow icon="calendar-outline" iconBg="#ECFDF5" iconColor="#059669" label="Recordatorios" sectionKey="reminders" value={preferences.privacy.reminders} onToggle={updatePrivacy} />
+          <PrivacyRow icon="calendar-outline" iconBg={colors.successLight} iconColor={colors.successText} label="Recordatorios" sectionKey="reminders" value={preferences.privacy.reminders} onToggle={updatePrivacy} />
           <View style={styles.privacySeparator} />
-          <PrivacyRow icon="people-outline" iconBg="#FFF7ED" iconColor="#EA580C" label="Me Deben" sectionKey="receivables" value={preferences.privacy.receivables} onToggle={updatePrivacy} />
+          <PrivacyRow icon="people-outline" iconBg={colors.orangeLight} iconColor={colors.orange} label="Me Deben" sectionKey="receivables" value={preferences.privacy.receivables} onToggle={updatePrivacy} />
         </View>
 
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Ionicons name="finger-print-outline" size={20} color="#059669" />
+            <Ionicons name="finger-print-outline" size={20} color={colors.success} />
             <Text style={styles.sectionTitle}>Seguridad</Text>
           </View>
           <View style={styles.toggleRow}>
@@ -146,15 +148,15 @@ export default function PreferencesScreen() {
             <Switch
               value={preferences.biometricLockEnabled}
               onValueChange={handleToggleBiometric}
-              trackColor={{ false: '#E5E7EB', true: '#059669' }}
-              thumbColor="#FFFFFF"
+              trackColor={{ false: colors.border, true: colors.success }}
+              thumbColor={colors.white}
             />
           </View>
         </View>
 
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Ionicons name="settings-outline" size={20} color="#374151" />
+            <Ionicons name="settings-outline" size={20} color={colors.textSecondary} />
             <Text style={styles.sectionTitle}>Otros Ajustes</Text>
           </View>
 
@@ -166,8 +168,8 @@ export default function PreferencesScreen() {
             <Switch
               value={preferences.remindersNotifications}
               onValueChange={handleToggleNotifications}
-              trackColor={{ false: '#E5E7EB', true: '#059669' }}
-              thumbColor="#FFFFFF"
+              trackColor={{ false: colors.border, true: colors.success }}
+              thumbColor={colors.white}
             />
           </View>
         </View>
@@ -217,7 +219,7 @@ const getStyles = (colors: Colors) => StyleSheet.create({
   },
   themePillActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   themePillText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
-  themePillTextActive: { color: colors.card },
+  themePillTextActive: { color: colors.primaryText },
 
   privacyRow: {
     flexDirection: 'row',
@@ -233,7 +235,7 @@ const getStyles = (colors: Colors) => StyleSheet.create({
     alignItems: 'center',
   },
   privacyLabel: { flex: 1, fontSize: 14, fontWeight: '500', color: colors.textPrimary },
-  privacySeparator: { height: 1, backgroundColor: '#F9FAFB', marginVertical: 2 },
+  privacySeparator: { height: 1, backgroundColor: colors.border, marginVertical: 2 },
 
   toggleRow: {
     flexDirection: 'row',

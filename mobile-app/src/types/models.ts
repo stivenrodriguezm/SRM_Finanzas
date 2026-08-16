@@ -54,6 +54,18 @@ export interface Debt {
   updatedAt: string;
 }
 
+export type ReminderNotificationMode = 'default' | 'escalating' | 'off';
+
+export interface ReminderNotificationConfig {
+  mode: ReminderNotificationMode;
+  daysBefore: number;
+  hour: number;
+  startHour: number;
+  endHour: number;
+  initialIntervalMinutes: number;
+  minIntervalMinutes: number;
+}
+
 export interface Reminder {
   _id: string;
   user: string;
@@ -65,6 +77,8 @@ export interface Reminder {
   paymentLink?: string;
   description?: string;
   dayOfMonth?: number;
+  notificationConfig?: ReminderNotificationConfig;
+  snoozedUntil?: string | null;
   createdAt: string;
   updatedAt: string;
 }

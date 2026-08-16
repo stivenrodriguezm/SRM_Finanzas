@@ -73,7 +73,7 @@ export default function HomeScreen() {
 
       setDebts(debtsRes.data);
       setReminders(remRes.data);
-      syncReminderNotifications(remRes.data).catch(() => {});
+      syncReminderNotifications(remRes.data, preferences.remindersNotifications).catch(() => {});
     } catch (error) {
       console.log('Error fetching home data', error);
     } finally {
@@ -233,8 +233,8 @@ export default function HomeScreen() {
       {isLoading ? (
         <View style={{ paddingTop: 20 }}>
           <View style={{ paddingHorizontal: 20, marginBottom: 20, flexDirection: 'row', justifyContent: 'space-between' }}>
-            <View style={{ height: 28, width: 150, backgroundColor: '#E5E7EB', borderRadius: 8 }} />
-            <View style={{ height: 32, width: 32, backgroundColor: '#E5E7EB', borderRadius: 16 }} />
+            <View style={{ height: 28, width: 150, backgroundColor: colors.iconBg, borderRadius: 8 }} />
+            <View style={{ height: 32, width: 32, backgroundColor: colors.iconBg, borderRadius: 16 }} />
           </View>
           <SkeletonLoader type="card" />
           <SkeletonLoader type="list" />
@@ -247,8 +247,8 @@ export default function HomeScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor="#059669"
-              colors={['#059669']}
+              tintColor={colors.success}
+              colors={[colors.success]}
             />
           }
         >
@@ -270,7 +270,7 @@ export default function HomeScreen() {
                   <Ionicons
                     name={isPrivate ? 'eye-off-outline' : 'eye-outline'}
                     size={22}
-                    color="#94A3B8"
+                    color="rgba(255,255,255,0.75)"
                   />
                 </TouchableOpacity>
                 {/* Tarea 3: Botón de Perfil */}
@@ -282,7 +282,7 @@ export default function HomeScreen() {
                   <Ionicons
                     name="person-circle-outline"
                     size={26}
-                    color="#94A3B8"
+                    color="rgba(255,255,255,0.75)"
                   />
                 </TouchableOpacity>
               </View>
@@ -315,10 +315,10 @@ export default function HomeScreen() {
                       onLongPress={drag}
                       disabled={isActive}
                       style={[styles.accountCard, {
-                        backgroundColor: account.color ? `${account.color}25` : '#E5E7EB33',
+                        backgroundColor: account.color ? `${account.color}25` : `${colors.border}33`,
                         opacity: isHidden ? 0.5 : 1,
                         borderWidth: 1,
-                        borderColor: account.color ? `${account.color}40` : '#E5E7EB',
+                        borderColor: account.color ? `${account.color}40` : colors.border,
                         elevation: isActive ? 5 : 0,
                       }]}
                       onPress={() => {
@@ -329,7 +329,7 @@ export default function HomeScreen() {
                     >
                       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
                         <View style={[styles.accountIcon, { marginBottom: 0, marginRight: 8, backgroundColor: account.color || colors.primary }]}>
-                          <Ionicons name={(account.icon || 'wallet') as any} size={18} color="#fff" />
+                          <Ionicons name={(account.icon || 'wallet') as any} size={18} color={colors.white} />
                         </View>
                         <Text style={[styles.accountName, { flex: 1, marginBottom: 0 }]} numberOfLines={1}>
                           {account.name}
@@ -360,8 +360,8 @@ export default function HomeScreen() {
                   style={[styles.accountCard, styles.addAccountCard]}
                   onPress={() => openAccountModal('add')}
                 >
-                  <View style={[styles.accountIcon, { backgroundColor: '#E2E8F0' }]}>
-                    <Ionicons name="add" size={24} color="#475569" />
+                  <View style={[styles.accountIcon, { backgroundColor: colors.iconBg }]}>
+                    <Ionicons name="add" size={24} color={colors.textSecondary} />
                   </View>
                   <Text style={styles.addAccountText}>Agregar</Text>
                 </TouchableOpacity>
@@ -376,8 +376,8 @@ export default function HomeScreen() {
               style={styles.actionButton}
               onPress={() => navigation.navigate('AddRecord', { initialType: 'abono_deuda' })}
             >
-              <View style={[styles.iconContainer, { backgroundColor: '#EDE9FE' }]}>
-                <Ionicons name="return-down-back" size={24} color="#7C3AED" />
+              <View style={[styles.iconContainer, { backgroundColor: colors.purpleLight }]}>
+                <Ionicons name="return-down-back" size={24} color={colors.purple} />
               </View>
               <Text style={styles.actionText}>{'Abono\nDeuda'}</Text>
             </TouchableOpacity>
@@ -387,8 +387,8 @@ export default function HomeScreen() {
               style={styles.actionButton}
               onPress={() => navigation.navigate('AddRecord', { initialType: 'ingreso' })}
             >
-              <View style={[styles.iconContainer, { backgroundColor: '#DCFCE7' }]}>
-                <Ionicons name="arrow-up" size={24} color="#16A34A" />
+              <View style={[styles.iconContainer, { backgroundColor: colors.successLight }]}>
+                <Ionicons name="arrow-up" size={24} color={colors.success} />
               </View>
               <Text style={styles.actionText}>Ingreso</Text>
             </TouchableOpacity>
@@ -398,8 +398,8 @@ export default function HomeScreen() {
               style={styles.actionButton}
               onPress={() => navigation.navigate('AddRecord', { initialType: 'gasto' })}
             >
-              <View style={[styles.iconContainer, { backgroundColor: '#FEE2E2' }]}>
-                <Ionicons name="arrow-down" size={24} color="#DC2626" />
+              <View style={[styles.iconContainer, { backgroundColor: colors.dangerLight }]}>
+                <Ionicons name="arrow-down" size={24} color={colors.danger} />
               </View>
               <Text style={styles.actionText}>Gasto</Text>
             </TouchableOpacity>
@@ -418,18 +418,18 @@ export default function HomeScreen() {
               >
                 <View style={styles.columnHeaderContainer}>
                   <Text style={styles.columnTitle}>Me deben</Text>
-                  <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
+                  <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
                 </View>
                 {debts.filter(d => d.type === 'me_deben').slice(0, 2).map((debt) => (
                   <View key={debt._id} style={[styles.debtItem, { borderLeftColor: 'rgba(5,150,105,0.5)' }]}>
                     <Text style={styles.debtItemName} numberOfLines={1}>{debt.name}</Text>
-                    <Text style={[styles.debtItemAmount, { color: '#059669' }]}>
+                    <Text style={[styles.debtItemAmount, { color: colors.success }]}>
                       {maskValue(`+ $ ${debt.remainingAmount.toLocaleString('es-CO')}`)}
                     </Text>
                   </View>
                 ))}
                 {debts.filter(d => d.type === 'me_deben').length === 0 && (
-                  <Text style={{color: '#9CA3AF', fontSize: 13, marginTop: 4}}>Ninguna activa</Text>
+                  <Text style={{color: colors.textMuted, fontSize: 13, marginTop: 4}}>Ninguna activa</Text>
                 )}
               </TouchableOpacity>
 
@@ -441,18 +441,18 @@ export default function HomeScreen() {
               >
                 <View style={styles.columnHeaderContainer}>
                   <Text style={styles.columnTitle}>Debo</Text>
-                  <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
+                  <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
                 </View>
                 {debts.filter(d => d.type === 'debo').slice(0, 2).map((debt) => (
                   <View key={debt._id} style={[styles.debtItem, { borderLeftColor: 'rgba(180,83,9,0.5)' }]}>
                     <Text style={styles.debtItemName} numberOfLines={1}>{debt.name}</Text>
-                    <Text style={[styles.debtItemAmount, { color: '#B45309' }]}>
+                    <Text style={[styles.debtItemAmount, { color: colors.warning }]}>
                       {maskValue(`- $ ${debt.remainingAmount.toLocaleString('es-CO')}`)}
                     </Text>
                   </View>
                 ))}
                 {debts.filter(d => d.type === 'debo').length === 0 && (
-                  <Text style={{color: '#9CA3AF', fontSize: 13, marginTop: 4}}>Ninguna activa</Text>
+                  <Text style={{color: colors.textMuted, fontSize: 13, marginTop: 4}}>Ninguna activa</Text>
                 )}
               </TouchableOpacity>
 
@@ -464,12 +464,12 @@ export default function HomeScreen() {
             <View style={styles.remindersHeader}>
               <Text style={styles.sectionTitle}>Recordatorios Pendientes</Text>
               <TouchableOpacity onPress={() => navigation.navigate('AddReminder')}>
-                <Ionicons name="add-circle" size={28} color="#059669" />
+                <Ionicons name="add-circle" size={28} color={colors.success} />
               </TouchableOpacity>
             </View>
 
             {reminders.length === 0 ? (
-              <Text style={{ textAlign: 'center', color: '#9CA3AF', marginTop: 10 }}>No tienes recordatorios</Text>
+              <Text style={{ textAlign: 'center', color: colors.textMuted, marginTop: 10 }}>No tienes recordatorios</Text>
             ) : (
               reminders.slice(0, 3).map((reminder) => {
                 const diffTime = new Date(reminder.date).getTime() - new Date().getTime();
@@ -487,8 +487,8 @@ export default function HomeScreen() {
                     style={styles.reminderCard}
                     onPress={() => navigation.navigate('ReminderDetail', { reminder, dateText, isUrgent })}
                   >
-                    <View style={[styles.reminderIcon, { backgroundColor: isUrgent ? '#FEF2F2' : '#F3F4F6' }]}>
-                      <Ionicons name="notifications" size={20} color={isUrgent ? '#EF4444' : '#4B5563'} />
+                    <View style={[styles.reminderIcon, { backgroundColor: isUrgent ? colors.dangerLight : colors.iconBg }]}>
+                      <Ionicons name="notifications" size={20} color={isUrgent ? colors.danger : colors.textSecondary} />
                     </View>
                     <View style={styles.reminderInfo}>
                       <Text style={styles.reminderName}>{reminder.title}</Text>
@@ -517,7 +517,7 @@ export default function HomeScreen() {
                 {modalMode === 'add' ? 'Nueva Cuenta' : 'Detalles de la Cuenta'}
               </Text>
               <TouchableOpacity onPress={() => setAccountModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#4B5563" />
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -526,11 +526,11 @@ export default function HomeScreen() {
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Nombre de la cuenta</Text>
                 <View style={styles.inputContainer}>
-                  <Ionicons name="card-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
+                  <Ionicons name="card-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
                   <TextInput
                     style={styles.textInput}
                     placeholder="Ej. Mi Cuenta de Ahorros"
-                    placeholderTextColor="#9CA3AF"
+                    placeholderTextColor={colors.textMuted}
                     value={accountName}
                     onChangeText={setAccountName}
                   />
@@ -546,7 +546,7 @@ export default function HomeScreen() {
                     style={styles.amountInput}
                     placeholder="0.00"
                     keyboardType="numeric"
-                    placeholderTextColor="#9CA3AF"
+                    placeholderTextColor={colors.textMuted}
                     value={accountBalance}
                     onChangeText={setAccountBalance}
                   />
@@ -560,13 +560,13 @@ export default function HomeScreen() {
                   <Ionicons
                     name="document-text-outline"
                     size={20}
-                    color="#9CA3AF"
+                    color={colors.textMuted}
                     style={[styles.inputIcon, { marginTop: 2 }]}
                   />
                   <TextInput
                     style={[styles.textInput, { minHeight: 60, textAlignVertical: 'top' }]}
                     placeholder="Ej. Cuenta de ahorros para emergencias..."
-                    placeholderTextColor="#9CA3AF"
+                    placeholderTextColor={colors.textMuted}
                     multiline
                     value={accountDescription}
                     onChangeText={setAccountDescription}
@@ -578,20 +578,20 @@ export default function HomeScreen() {
               <View style={[styles.inputGroup, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
                 <View>
                   <Text style={styles.inputLabel}>¿Es una cuenta de deuda?</Text>
-                  <Text style={{ fontSize: 12, color: '#6B7280' }}>Ej. Tarjetas de crédito, préstamos.</Text>
+                  <Text style={{ fontSize: 12, color: colors.textSecondary }}>Ej. Tarjetas de crédito, préstamos.</Text>
                 </View>
                 <Switch
                   value={isLiability}
                   onValueChange={setIsLiability}
-                  trackColor={{ false: '#E5E7EB', true: '#DC2626' }}
-                  thumbColor="#FFFFFF"
+                  trackColor={{ false: colors.border, true: colors.danger }}
+                  thumbColor={colors.white}
                 />
               </View>
             </ScrollView>
 
             <TouchableOpacity style={styles.saveButton} onPress={handleSaveAccount} disabled={isSavingAccount}>
               {isSavingAccount ? (
-                <ActivityIndicator color="#FFFFFF" />
+                <ActivityIndicator color={colors.primaryText} />
               ) : (
                 <Text style={styles.saveButtonText}>
                   {modalMode === 'add' ? 'Crear Cuenta' : 'Guardar Cambios'}
@@ -663,7 +663,7 @@ const getStyles = (colors: Colors) => StyleSheet.create({
   },
   netWorthLabel: {
     fontSize: 14,
-    color: '#CBD5E1',
+    color: 'rgba(255,255,255,0.75)',
     fontWeight: '500',
   },
   netWorthAmount: {
@@ -881,7 +881,7 @@ const getStyles = (colors: Colors) => StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: colors.iconBg,
     borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -891,7 +891,7 @@ const getStyles = (colors: Colors) => StyleSheet.create({
   amountInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: colors.iconBg,
     borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -931,7 +931,7 @@ const getStyles = (colors: Colors) => StyleSheet.create({
     elevation: 5,
   },
   saveButtonText: {
-    color: colors.card,
+    color: colors.primaryText,
     fontSize: 16,
     fontWeight: 'bold',
   },

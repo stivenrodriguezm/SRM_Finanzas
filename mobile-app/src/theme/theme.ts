@@ -22,34 +22,38 @@ export const lightColors = {
   infoLight: '#DBEAFE',
   purple: '#7C3AED',
   purpleLight: '#F5F3FF',
+  orange: '#EA580C',
+  orangeLight: '#FFF7ED',
   white: '#FFFFFF',
   transparentBg: 'rgba(255,255,255,0.08)',
 };
 
 export const darkColors = {
-  background: '#09090B',      // Zinc-950 – negro cálido premium
-  card: '#18181B',            // Zinc-900 – tarjeta oscura
-  cardElevated: '#1C1C1F',    // Ligeramente más claro para capas
-  textPrimary: '#FAFAFA',     // Zinc-50 – blanco cálido
-  textSecondary: '#A1A1AA',   // Zinc-400 – gris azulado
-  textMuted: '#71717A',       // Zinc-500 – gris oscuro
-  border: '#27272A',          // Zinc-800 – borde sutil
-  iconBg: '#27272A',          // Mismo que borde
-  primary: '#6366F1',         // Índigo-500 – vibrante pero elegante
-  primaryText: '#FFFFFF',
-  success: '#10B981',         // Esmeralda-500
-  successLight: 'rgba(16,185,129,0.15)',
-  successText: '#34D399',     // Esmeralda-400
+  background: '#131316',      // Zinc-900-ish – oscuro pero no negro puro, menos duro con la vista
+  card: '#1D1D21',            // Un escalón claro sobre el fondo — se nota como "tarjeta"
+  cardElevated: '#26262B',    // Tercer nivel, claramente más claro que card — para modales/elementos flotantes
+  textPrimary: '#F4F4F5',     // Zinc-100 – blanco cálido, no puro (menos deslumbrante)
+  textSecondary: '#A8A8B3',   // Gris azulado, más brillante que antes para mejor lectura
+  textMuted: '#7D7D87',       // Gris medio, todavía legible sobre card
+  border: '#333338',          // Borde visible sin ser llamativo
+  iconBg: '#2A2A30',          // Fondo neutro para íconos, un poco más claro que el borde
+  primary: '#818CF8',         // Índigo-400 – más brillante que en claro para resaltar sobre fondo oscuro
+  primaryText: '#0B0B0D',
+  success: '#34D399',         // Esmeralda-400 – más brillante para buen contraste
+  successLight: 'rgba(52,211,153,0.16)',
+  successText: '#6EE7B7',     // Esmeralda-300
   danger: '#F87171',          // Rojo-400 – suave en oscuro
-  dangerLight: 'rgba(248,113,113,0.12)',
-  dangerMuted: 'rgba(248,113,113,0.08)',
+  dangerLight: 'rgba(248,113,113,0.16)',
+  dangerMuted: 'rgba(248,113,113,0.10)',
   dangerText: '#FCA5A5',      // Rojo-300 – muy suave
   warning: '#FBBF24',         // Ámbar-400
-  warningLight: 'rgba(251,191,36,0.15)',
+  warningLight: 'rgba(251,191,36,0.16)',
   info: '#60A5FA',            // Azul-400
-  infoLight: 'rgba(96,165,250,0.15)',
-  purple: '#A78BFA',          // Violeta-400
-  purpleLight: 'rgba(167,139,250,0.15)',
+  infoLight: 'rgba(96,165,250,0.16)',
+  purple: '#C4B5FD',          // Violeta-300 – más brillante para buen contraste
+  purpleLight: 'rgba(196,181,253,0.16)',
+  orange: '#FB923C',          // Naranja-400 – más brillante para buen contraste
+  orangeLight: 'rgba(251,146,60,0.16)',
   white: '#FFFFFF',
-  transparentBg: 'rgba(255,255,255,0.06)',
+  transparentBg: 'rgba(255,255,255,0.08)',
 };

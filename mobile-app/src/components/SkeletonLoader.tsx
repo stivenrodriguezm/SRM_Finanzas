@@ -1,11 +1,16 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Animated, StyleSheet } from 'react-native';
+import { usePreferences } from '../context/PreferencesContext';
+
+type Colors = ReturnType<typeof usePreferences>['colors'];
 
 interface SkeletonLoaderProps {
   type?: 'card' | 'list';
 }
 
 export default function SkeletonLoader({ type = 'card' }: SkeletonLoaderProps) {
+  const { colors } = usePreferences();
+  const styles = getStyles(colors);
   const animatedValue = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -56,14 +61,14 @@ export default function SkeletonLoader({ type = 'card' }: SkeletonLoaderProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: Colors) => StyleSheet.create({
   cardContainer: {
     padding: 20,
     gap: 16,
   },
   cardSkeleton: {
     height: 120,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: colors.iconBg,
     borderRadius: 20,
     width: '100%',
   },
@@ -80,7 +85,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 16,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: colors.iconBg,
     marginRight: 16,
   },
   listTextContainer: {
@@ -89,13 +94,13 @@ const styles = StyleSheet.create({
   },
   titleSkeleton: {
     height: 16,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: colors.iconBg,
     borderRadius: 8,
     width: '60%',
   },
   subtitleSkeleton: {
     height: 12,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: colors.iconBg,
     borderRadius: 6,
     width: '40%',
   },

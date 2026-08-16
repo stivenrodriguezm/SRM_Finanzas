@@ -14,11 +14,11 @@ import { Transaction, Account, TransactionType } from '../types/models';
 
 type Colors = ReturnType<typeof usePreferences>['colors'];
 
-const TYPE_ICON: Record<TransactionType, { icon: keyof typeof Ionicons.glyphMap; color: string; bg: string }> = {
-  ingreso: { icon: 'arrow-up', color: '#16A34A', bg: '#DCFCE7' },
-  egreso: { icon: 'arrow-down', color: '#DC2626', bg: '#FEE2E2' },
-  abono_deuda: { icon: 'return-down-back', color: '#7C3AED', bg: '#EDE9FE' },
-};
+const getTypeIcon = (colors: Colors): Record<TransactionType, { icon: keyof typeof Ionicons.glyphMap; color: string; bg: string }> => ({
+  ingreso: { icon: 'arrow-up', color: colors.successText, bg: colors.successLight },
+  egreso: { icon: 'arrow-down', color: colors.danger, bg: colors.dangerLight },
+  abono_deuda: { icon: 'return-down-back', color: colors.purple, bg: colors.purpleLight },
+});
 
 const MONTHS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
@@ -50,14 +50,14 @@ const AccountAccordion = ({ account, transactions, renderTransaction }: AccountA
       <TouchableOpacity style={styles.accordionHeader} onPress={() => setExpanded(!expanded)} activeOpacity={0.7}>
         <View style={styles.accordionHeaderLeft}>
           <View style={styles.accordionIcon}>
-            <Ionicons name="wallet-outline" size={20} color="#3B82F6" />
+            <Ionicons name="wallet-outline" size={20} color={colors.info} />
           </View>
           <View>
             <Text style={styles.accordionTitle}>{account}</Text>
             <Text style={styles.accordionSubtitle}>{transactions.length} transacciones</Text>
           </View>
         </View>
-        <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={24} color="#6B7280" />
+        <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={24} color={colors.textSecondary} />
       </TouchableOpacity>
       {expanded && (
         <View style={styles.accordionContent}>
@@ -75,6 +75,7 @@ const AccountAccordion = ({ account, transactions, renderTransaction }: AccountA
 export default function TransactionsScreen() {
   const { preferences, colors } = usePreferences();
   const styles = getStyles(colors);
+  const typeIcon = getTypeIcon(colors);
   const { token } = useAuth();
   const [activeFilter, setActiveFilter] = useState('Todos');
   const [isOptionsModalVisible, setOptionsModalVisible] = useState(false);
@@ -273,7 +274,7 @@ export default function TransactionsScreen() {
   };
 
   const renderTransaction = (tx: DisplayTransaction, isInsideAccordion = false) => {
-    const meta = TYPE_ICON[tx.type] || TYPE_ICON.egreso;
+    const meta = typeIcon[tx.type] || typeIcon.egreso;
     return (
       <TouchableOpacity
         key={tx.id}
@@ -295,7 +296,7 @@ export default function TransactionsScreen() {
             )}
           </View>
         </View>
-        <Text style={[styles.transactionAmount, { color: tx.type === 'ingreso' ? '#16A34A' : tx.type === 'abono_deuda' ? '#7C3AED' : '#111827' }]}>
+        <Text style={[styles.transactionAmount, { color: tx.type === 'ingreso' ? colors.successText : tx.type === 'abono_deuda' ? colors.purple : colors.textPrimary }]}>
           {maskValue(tx.amount)}
         </Text>
       </TouchableOpacity>
@@ -354,7 +355,7 @@ export default function TransactionsScreen() {
           <Text style={styles.headerTitle}>Historial de Transacciones</Text>
           <View style={styles.headerActions}>
             <TouchableOpacity style={styles.headerIconBtn} onPress={() => setIsPrivate(!isPrivate)} activeOpacity={0.7}>
-              <Ionicons name={isPrivate ? 'eye-off-outline' : 'eye-outline'} size={22} color="#374151" />
+              <Ionicons name={isPrivate ? 'eye-off-outline' : 'eye-outline'} size={22} color={colors.textSecondary} />
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -365,22 +366,22 @@ export default function TransactionsScreen() {
               }}
               activeOpacity={0.7}
             >
-              <Ionicons name={isSearchOpen ? 'close-circle' : 'search'} size={22} color={isSearchOpen ? '#DC2626' : '#374151'} />
+              <Ionicons name={isSearchOpen ? 'close-circle' : 'search'} size={22} color={isSearchOpen ? colors.danger : colors.textSecondary} />
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.headerIconBtn} onPress={() => setOptionsModalVisible(true)} activeOpacity={0.7}>
-              <Ionicons name="options-outline" size={22} color="#374151" />
+              <Ionicons name="options-outline" size={22} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
         </View>
 
         {isSearchOpen && (
           <View style={styles.searchContainer}>
-            <Ionicons name="search-outline" size={18} color="#9CA3AF" style={{ marginRight: 8 }} />
+            <Ionicons name="search-outline" size={18} color={colors.textMuted} style={{ marginRight: 8 }} />
             <TextInput
               style={styles.searchInput}
               placeholder="Buscar por concepto o nombre..."
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={colors.textMuted}
               value={searchQuery}
               onChangeText={setSearchQuery}
               autoFocus
@@ -414,7 +415,7 @@ export default function TransactionsScreen() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Opciones de Vista</Text>
               <TouchableOpacity onPress={() => setOptionsModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#4B5563" />
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -423,7 +424,7 @@ export default function TransactionsScreen() {
                 <Text style={styles.optionsGroupTitle}>Agrupar por Cuenta</Text>
                 <Text style={styles.optionsGroupSub}>Ver transacciones separadas por cuenta</Text>
               </View>
-              <Switch value={isGrouped} onValueChange={setIsGrouped} trackColor={{ false: '#E5E7EB', true: '#059669' }} thumbColor="#FFFFFF" />
+              <Switch value={isGrouped} onValueChange={setIsGrouped} trackColor={{ false: colors.border, true: colors.success }} thumbColor={colors.white} />
             </View>
 
             <Text style={styles.optionsSectionTitle}>Filtrar por Año</Text>
@@ -440,17 +441,17 @@ export default function TransactionsScreen() {
             <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 200 }}>
               {availableMonthsForYear.length === 0 ? (
                 <View style={{ padding: 16, alignItems: 'center' }}>
-                  <Text style={{ color: '#9CA3AF' }}>Sin meses disponibles</Text>
+                  <Text style={{ color: colors.textMuted }}>Sin meses disponibles</Text>
                 </View>
               ) : (
                 availableMonthsForYear.map((month) => (
                   <TouchableOpacity
                     key={month}
-                    style={[styles.modalItem, selectedMonth === month && { backgroundColor: '#F3F4F6' }]}
+                    style={[styles.modalItem, selectedMonth === month && { backgroundColor: colors.iconBg }]}
                     onPress={() => { setSelectedMonth(month); setOptionsModalVisible(false); }}
                   >
-                    <Text style={[styles.modalItemText, selectedMonth === month && { fontWeight: 'bold', color: '#111827' }]}>{month}</Text>
-                    {selectedMonth === month && <Ionicons name="checkmark" size={20} color="#059669" />}
+                    <Text style={[styles.modalItemText, selectedMonth === month && { fontWeight: 'bold', color: colors.textPrimary }]}>{month}</Text>
+                    {selectedMonth === month && <Ionicons name="checkmark" size={20} color={colors.success} />}
                   </TouchableOpacity>
                 ))
               )}
@@ -466,7 +467,7 @@ export default function TransactionsScreen() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Editar transacción</Text>
               <TouchableOpacity onPress={closeEditModal}>
-                <Ionicons name="close" size={24} color="#4B5563" />
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -498,7 +499,7 @@ export default function TransactionsScreen() {
             )}
 
             <TouchableOpacity style={styles.editSaveButton} onPress={handleSaveEdit} disabled={isSavingEdit}>
-              {isSavingEdit ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.editSaveButtonText}>Guardar Cambios</Text>}
+              {isSavingEdit ? <ActivityIndicator color={colors.primaryText} /> : <Text style={styles.editSaveButtonText}>Guardar Cambios</Text>}
             </TouchableOpacity>
             <TouchableOpacity style={styles.editDeleteButton} onPress={handleDeleteTx} disabled={isDeletingTx}>
               <Text style={styles.editDeleteButtonText}>{isDeletingTx ? 'Eliminando...' : 'Eliminar transacción'}</Text>
@@ -558,7 +559,7 @@ const getStyles = (colors: Colors) => StyleSheet.create({
   },
   filterPillActive: { backgroundColor: colors.primary },
   filterText: { fontSize: 13, fontWeight: '500', color: colors.textSecondary },
-  filterTextActive: { color: colors.card },
+  filterTextActive: { color: colors.primaryText },
   listContainer: { paddingHorizontal: 20, paddingBottom: 40 },
   emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingTop: 60 },
   emptyText: { marginTop: 12, fontSize: 16, color: colors.textSecondary, fontWeight: '500' },
@@ -635,7 +636,7 @@ const getStyles = (colors: Colors) => StyleSheet.create({
   accordionContent: {
     padding: 16,
     paddingTop: 4,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: colors.iconBg,
     borderTopWidth: 1,
     borderTopColor: colors.iconBg,
   },
@@ -659,7 +660,7 @@ const getStyles = (colors: Colors) => StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 24,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: colors.iconBg,
     padding: 16,
     borderRadius: 16,
   },
@@ -675,7 +676,7 @@ const getStyles = (colors: Colors) => StyleSheet.create({
   },
   yearPillActive: { backgroundColor: colors.primary },
   yearPillText: { fontSize: 14, fontWeight: '500', color: colors.textSecondary },
-  yearPillTextActive: { color: colors.card },
+  yearPillTextActive: { color: colors.primaryText },
   modalItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -692,7 +693,7 @@ const getStyles = (colors: Colors) => StyleSheet.create({
     marginTop: 6,
     fontSize: 16,
     color: colors.textPrimary,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: colors.iconBg,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.border,
@@ -706,7 +707,7 @@ const getStyles = (colors: Colors) => StyleSheet.create({
     alignItems: 'center',
     marginTop: 8,
   },
-  editSaveButtonText: { color: colors.card, fontSize: 16, fontWeight: 'bold' },
+  editSaveButtonText: { color: colors.primaryText, fontSize: 16, fontWeight: 'bold' },
   editDeleteButton: {
     marginTop: 10,
     paddingVertical: 14,

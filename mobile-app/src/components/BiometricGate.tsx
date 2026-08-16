@@ -55,7 +55,7 @@ export default function BiometricGate({ children }: { children: ReactNode }) {
         disabled={isAuthenticating}
         activeOpacity={0.85}
       >
-        <Text style={styles.buttonText}>{isAuthenticating ? 'Verificando...' : 'Desbloquear'}</Text>
+        <Text style={[styles.buttonText, { color: colors.primaryText }]}>{isAuthenticating ? 'Verificando...' : 'Desbloquear'}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -67,5 +67,5 @@ const styles = StyleSheet.create({
   title: { fontSize: 19, fontWeight: '700', marginBottom: 6 },
   subtitle: { fontSize: 14, marginBottom: 24, textAlign: 'center' },
   button: { paddingHorizontal: 28, paddingVertical: 14, borderRadius: 16 },
-  buttonText: { color: '#FFFFFF', fontWeight: '700', fontSize: 15 },
+  buttonText: { fontWeight: '700', fontSize: 15 },
 });

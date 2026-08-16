@@ -38,7 +38,7 @@ function SettingRow({ icon, iconBg, iconColor, title, subtitle, onPress, rightEl
         <Text style={styles.settingTitle}>{title}</Text>
         {subtitle ? <Text style={styles.settingSubtitle}>{subtitle}</Text> : null}
       </View>
-      {rightElement || <Ionicons name="chevron-forward" size={18} color="#D1D5DB" />}
+      {rightElement || <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />}
     </TouchableOpacity>
   );
 }
@@ -134,8 +134,8 @@ export default function ProfileScreen() {
         <View style={styles.group}>
           <SettingRow
             icon="person-outline"
-            iconBg="#EFF6FF"
-            iconColor="#3B82F6"
+            iconBg={colors.infoLight}
+            iconColor={colors.info}
             title="Información Personal"
             subtitle={`${editName} · @${editUsername}`}
             onPress={() => setInfoModalVisible(true)}
@@ -143,8 +143,8 @@ export default function ProfileScreen() {
           <View style={styles.separator} />
           <SettingRow
             icon="lock-closed-outline"
-            iconBg="#FEF3C7"
-            iconColor="#D97706"
+            iconBg={colors.warningLight}
+            iconColor={colors.warning}
             title="Cambiar Contraseña"
             subtitle="Mantén tu cuenta segura"
             onPress={() => setPwModalVisible(true)}
@@ -152,8 +152,8 @@ export default function ProfileScreen() {
           <View style={styles.separator} />
           <SettingRow
             icon="download-outline"
-            iconBg="#ECFDF5"
-            iconColor="#059669"
+            iconBg={colors.successLight}
+            iconColor={colors.successText}
             title="Exportar mis datos"
             subtitle="Respaldo completo en JSON"
             onPress={() => handleExport('json')}
@@ -162,8 +162,8 @@ export default function ProfileScreen() {
           <View style={styles.separator} />
           <SettingRow
             icon="document-text-outline"
-            iconBg="#ECFDF5"
-            iconColor="#059669"
+            iconBg={colors.successLight}
+            iconColor={colors.successText}
             title="Exportar transacciones (CSV)"
             subtitle="Para abrir en Excel o Sheets"
             onPress={() => handleExport('csv')}
@@ -174,8 +174,8 @@ export default function ProfileScreen() {
         <View style={styles.group}>
           <SettingRow
             icon="color-palette-outline"
-            iconBg="#F5F3FF"
-            iconColor="#7C3AED"
+            iconBg={colors.purpleLight}
+            iconColor={colors.purple}
             title="Personalización"
             subtitle={`Tema: ${themeLabel[preferences.theme]} · Privacidad, notificaciones y bloqueo`}
             onPress={() => navigation.navigate('Preferences')}
@@ -190,7 +190,7 @@ export default function ProfileScreen() {
           ])}
           activeOpacity={0.75}
         >
-          <Ionicons name="log-out-outline" size={20} color="#DC2626" style={{ marginRight: 10 }} />
+          <Ionicons name="log-out-outline" size={20} color={colors.danger} style={{ marginRight: 10 }} />
           <Text style={styles.logoutText}>Cerrar Sesión</Text>
         </TouchableOpacity>
 
@@ -207,7 +207,7 @@ export default function ProfileScreen() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Información Personal</Text>
               <TouchableOpacity onPress={() => setInfoModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#4B5563" />
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -224,13 +224,13 @@ export default function ProfileScreen() {
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Nombre completo</Text>
               <View style={styles.inputRow}>
-                <Ionicons name="person-outline" size={18} color="#9CA3AF" style={{ marginRight: 10 }} />
+                <Ionicons name="person-outline" size={18} color={colors.textMuted} style={{ marginRight: 10 }} />
                 <TextInput
                   style={styles.textInput}
                   value={editName}
                   onChangeText={setEditName}
                   placeholder="Tu nombre"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={colors.textMuted}
                 />
               </View>
             </View>
@@ -244,7 +244,7 @@ export default function ProfileScreen() {
                   value={editUsername}
                   onChangeText={setEditUsername}
                   placeholder="usuario"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={colors.textMuted}
                   autoCapitalize="none"
                 />
               </View>
@@ -253,13 +253,13 @@ export default function ProfileScreen() {
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Correo electrónico</Text>
               <View style={styles.inputRow}>
-                <Ionicons name="mail-outline" size={18} color="#9CA3AF" style={{ marginRight: 10 }} />
+                <Ionicons name="mail-outline" size={18} color={colors.textMuted} style={{ marginRight: 10 }} />
                 <TextInput
                   style={styles.textInput}
                   value={editEmail}
                   onChangeText={setEditEmail}
                   placeholder="correo@ejemplo.com"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={colors.textMuted}
                   keyboardType="email-address"
                   autoCapitalize="none"
                 />
@@ -282,7 +282,7 @@ export default function ProfileScreen() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Cambiar Contraseña</Text>
               <TouchableOpacity onPress={() => setPwModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#4B5563" />
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -293,12 +293,12 @@ export default function ProfileScreen() {
                   style={styles.textInput}
                   secureTextEntry={!showCurrentPw}
                   placeholder="••••••••"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={colors.textMuted}
                   value={currentPw}
                   onChangeText={setCurrentPw}
                 />
                 <TouchableOpacity onPress={() => setShowCurrentPw(!showCurrentPw)}>
-                  <Ionicons name={showCurrentPw ? 'eye-off-outline' : 'eye-outline'} size={20} color="#9CA3AF" />
+                  <Ionicons name={showCurrentPw ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.textMuted} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -310,12 +310,12 @@ export default function ProfileScreen() {
                   style={styles.textInput}
                   secureTextEntry={!showNewPw}
                   placeholder="Mínimo 6 caracteres"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={colors.textMuted}
                   value={newPw}
                   onChangeText={setNewPw}
                 />
                 <TouchableOpacity onPress={() => setShowNewPw(!showNewPw)}>
-                  <Ionicons name={showNewPw ? 'eye-off-outline' : 'eye-outline'} size={20} color="#9CA3AF" />
+                  <Ionicons name={showNewPw ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.textMuted} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -327,7 +327,7 @@ export default function ProfileScreen() {
                   style={styles.textInput}
                   secureTextEntry={true}
                   placeholder="Repite la nueva contraseña"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={colors.textMuted}
                   value={confirmPw}
                   onChangeText={setConfirmPw}
                 />
@@ -370,11 +370,11 @@ const getStyles = (colors: Colors) => StyleSheet.create({
     alignItems: 'center',
     marginBottom: 14,
     borderWidth: 3,
-    borderColor: 'rgba(255,255,255,0.2)',
+    borderColor: `${colors.primaryText}33`,
   },
-  avatarText: { fontSize: 30, fontWeight: 'bold', color: colors.card },
-  userName: { fontSize: 22, fontWeight: 'bold', color: colors.card, marginBottom: 4 },
-  userEmail: { fontSize: 14, color: 'rgba(255,255,255,0.8)' },
+  avatarText: { fontSize: 30, fontWeight: 'bold', color: colors.primaryText },
+  userName: { fontSize: 22, fontWeight: 'bold', color: colors.primaryText, marginBottom: 4 },
+  userEmail: { fontSize: 14, color: `${colors.primaryText}CC` },
 
   sectionLabel: {
     fontSize: 12,
@@ -404,7 +404,7 @@ const getStyles = (colors: Colors) => StyleSheet.create({
   settingInfo: { flex: 1 },
   settingTitle: { fontSize: 15, fontWeight: '600', color: colors.textPrimary },
   settingSubtitle: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
-  separator: { height: 1, backgroundColor: '#F9FAFB', marginLeft: 68 },
+  separator: { height: 1, backgroundColor: colors.border, marginLeft: 68 },
 
   logoutButton: {
     flexDirection: 'row',
@@ -415,7 +415,7 @@ const getStyles = (colors: Colors) => StyleSheet.create({
     paddingVertical: 16,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#FECACA',
+    borderColor: colors.danger,
   },
   logoutText: { fontSize: 16, fontWeight: '600', color: colors.danger },
   version: { textAlign: 'center', fontSize: 12, color: colors.textMuted },
@@ -437,7 +437,7 @@ const getStyles = (colors: Colors) => StyleSheet.create({
   infoAvatarRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: colors.iconBg,
     borderRadius: 16,
     padding: 14,
     marginBottom: 20,
@@ -447,7 +447,7 @@ const getStyles = (colors: Colors) => StyleSheet.create({
     backgroundColor: colors.success,
     justifyContent: 'center', alignItems: 'center',
   },
-  infoAvatarText: { fontSize: 22, fontWeight: 'bold', color: colors.card },
+  infoAvatarText: { fontSize: 22, fontWeight: 'bold', color: colors.primaryText },
   infoAvatarName: { fontSize: 16, fontWeight: '700', color: colors.textPrimary },
   infoAvatarSub: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
   atSymbol: { fontSize: 16, fontWeight: '700', color: colors.textSecondary, marginRight: 6 },
@@ -457,7 +457,7 @@ const getStyles = (colors: Colors) => StyleSheet.create({
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: colors.iconBg,
     borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -477,5 +477,5 @@ const getStyles = (colors: Colors) => StyleSheet.create({
     shadowRadius: 10,
     elevation: 5,
   },
-  saveButtonText: { color: colors.card, fontSize: 16, fontWeight: 'bold' },
+  saveButtonText: { color: colors.primaryText, fontSize: 16, fontWeight: 'bold' },
 });

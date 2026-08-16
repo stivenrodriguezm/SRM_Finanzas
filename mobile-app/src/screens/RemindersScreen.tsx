@@ -30,7 +30,7 @@ export default function RemindersScreen() {
     try {
       const { data } = await apiClient.get<Reminder[]>('/reminders');
       setReminders(data);
-      syncReminderNotifications(data).catch(() => {});
+      syncReminderNotifications(data, preferences.remindersNotifications).catch(() => {});
     } catch (error) {
       console.log('Error fetching reminders', error);
     } finally {
@@ -51,7 +51,7 @@ export default function RemindersScreen() {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Pagos Pendientes</Text>
         <TouchableOpacity style={styles.eyeButton} onPress={() => setIsPrivate(!isPrivate)}>
-          <Ionicons name={isPrivate ? 'eye-off-outline' : 'eye-outline'} size={24} color="#94A3B8" />
+          <Ionicons name={isPrivate ? 'eye-off-outline' : 'eye-outline'} size={24} color={colors.textMuted} />
         </TouchableOpacity>
       </View>
 
@@ -61,28 +61,35 @@ export default function RemindersScreen() {
         ) : (
           <>
             {reminders.length === 0 ? (
-              <Text style={{ textAlign: 'center', color: '#9CA3AF', marginTop: 20 }}>No tienes recordatorios</Text>
+              <Text style={{ textAlign: 'center', color: colors.textMuted, marginTop: 20 }}>No tienes recordatorios</Text>
             ) : (
               reminders.map((reminder) => {
                 const diffTime = new Date(reminder.date).getTime() - new Date().getTime();
                 const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                const isUrgent = diffDays <= 1;
-                
+                const isSnoozed = !!reminder.snoozedUntil && new Date(reminder.snoozedUntil).getTime() >= new Date().setHours(0, 0, 0, 0);
+                const isUrgent = !isSnoozed && diffDays <= 1;
+
                 let dateText = `Vence en ${diffDays} días`;
                 if (diffDays === 0) dateText = 'Vence Hoy';
                 if (diffDays === 1) dateText = 'Vence Mañana';
                 if (diffDays < 0) dateText = `Vencido hace ${Math.abs(diffDays)} días`;
-                
+
                 return (
                   <View key={reminder._id} style={[styles.reminderCard, isUrgent && styles.reminderCardUrgent]}>
                     <View style={styles.cardTop}>
                       <View style={styles.cardHeaderInfo}>
-                        <View style={[styles.iconContainer, { backgroundColor: isUrgent ? '#FEF2F2' : '#F3F4F6' }]}>
-                          <Ionicons name="notifications" size={20} color={isUrgent ? '#EF4444' : '#4B5563'} />
+                        <View style={[styles.iconContainer, { backgroundColor: isUrgent ? colors.dangerLight : colors.iconBg }]}>
+                          <Ionicons name="notifications" size={20} color={isUrgent ? colors.danger : colors.textSecondary} />
                         </View>
                         <View>
                           <Text style={styles.reminderTitle}>{reminder.title}</Text>
                           <Text style={isUrgent ? styles.reminderDateUrgent : styles.reminderDate}>{dateText}</Text>
+                          {isSnoozed && (
+                            <View style={styles.snoozedPill}>
+                              <Ionicons name="time-outline" size={11} color={colors.textSecondary} />
+                              <Text style={styles.snoozedPillText}>Aplazado</Text>
+                            </View>
+                          )}
                         </View>
                       </View>
                       <Text style={styles.reminderAmount}>{maskValue(reminder.amount ? `$ ${reminder.amount.toLocaleString('es-CO')}` : 'Sin monto')}</Text>
@@ -93,7 +100,7 @@ export default function RemindersScreen() {
                       onPress={() => navigation.navigate('ReminderDetail', { reminder, dateText, isUrgent })}
                     >
                       <Text style={isUrgent ? styles.primaryButtonText : styles.secondaryButtonText}>Ver más</Text>
-                      <Ionicons name="arrow-forward" size={16} color={isUrgent ? '#FFFFFF' : '#111827'} style={{marginLeft: 8}} />
+                      <Ionicons name="arrow-forward" size={16} color={isUrgent ? colors.card : colors.textPrimary} style={{marginLeft: 8}} />
                     </TouchableOpacity>
                   </View>
                 );
@@ -109,7 +116,7 @@ export default function RemindersScreen() {
       {/* Botón Flotante para añadir */}
       <View style={styles.floatingButtonContainer}>
         <TouchableOpacity style={styles.addButton} onPress={() => navigation.navigate('AddReminder')}>
-          <Ionicons name="add" size={24} color="#FFFFFF" />
+          <Ionicons name="add" size={24} color={colors.primaryText} />
           <Text style={styles.addButtonText}>Añadir Recordatorio</Text>
         </TouchableOpacity>
       </View>
@@ -150,9 +157,9 @@ const getStyles = (colors: Colors) => StyleSheet.create({
     borderColor: colors.iconBg,
   },
   reminderCardUrgent: {
-    borderColor: '#FECACA',
+    borderColor: colors.danger,
     borderWidth: 1,
-    backgroundColor: '#FFFAFA',
+    backgroundColor: colors.dangerLight,
   },
   cardTop: {
     flexDirection: 'row',
@@ -187,6 +194,18 @@ const getStyles = (colors: Colors) => StyleSheet.create({
     fontSize: 13,
     color: colors.danger,
     fontWeight: '500',
+  },
+  snoozedPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 3,
+    marginTop: 4,
+  },
+  snoozedPillText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.textSecondary,
   },
   reminderAmount: {
     fontSize: 18,

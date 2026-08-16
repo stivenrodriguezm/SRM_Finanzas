@@ -117,13 +117,13 @@ export default function ChartsScreen() {
         <Text style={styles.headerTitle}>Análisis</Text>
 
         <View style={styles.statsRow}>
-          <View style={[styles.statCard, { borderLeftColor: '#059669' }]}>
+          <View style={[styles.statCard, { borderLeftColor: colors.success }]}>
             <Text style={styles.statLabel}>Me deben</Text>
-            <Text style={[styles.statValue, { color: '#059669' }]}>$ {totalMeDeben.toLocaleString('es-CO')}</Text>
+            <Text style={[styles.statValue, { color: colors.successText }]}>$ {totalMeDeben.toLocaleString('es-CO')}</Text>
           </View>
-          <View style={[styles.statCard, { borderLeftColor: '#DC2626' }]}>
+          <View style={[styles.statCard, { borderLeftColor: colors.danger }]}>
             <Text style={styles.statLabel}>Debo</Text>
-            <Text style={[styles.statValue, { color: '#DC2626' }]}>$ {totalDebo.toLocaleString('es-CO')}</Text>
+            <Text style={[styles.statValue, { color: colors.danger }]}>$ {totalDebo.toLocaleString('es-CO')}</Text>
           </View>
         </View>
 

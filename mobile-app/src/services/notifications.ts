@@ -1,6 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { Reminder } from '../types/models';
+import { computeNotificationTriggers } from '../utils/reminderNotificationSchedule';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -11,6 +12,11 @@ Notifications.setNotificationHandler({
     shouldShowList: true,
   }),
 });
+
+// Tope de notificaciones locales pendientes a la vez (iOS limita ~64 por app). Se prioriza lo
+// más próximo en el tiempo: si hay varios recordatorios "insistentes" activos el mismo día, los
+// avisos más lejanos se descartan primero.
+const MAX_TOTAL_SCHEDULED = 60;
 
 export const requestNotificationPermissions = async (): Promise<boolean> => {
   const { status: existing } = await Notifications.getPermissionsAsync();
@@ -30,40 +36,40 @@ export const requestNotificationPermissions = async (): Promise<boolean> => {
   return finalStatus === 'granted';
 };
 
-const notificationIdFor = (reminderId: string): string => `reminder-${reminderId}`;
-
-export const cancelReminderNotification = async (reminderId: string): Promise<void> => {
-  await Notifications.cancelScheduledNotificationAsync(notificationIdFor(reminderId));
+/** Cancela todos los avisos locales pendientes (esta app no usa notificaciones locales para nada más). */
+export const cancelAllReminderNotifications = async (): Promise<void> => {
+  await Notifications.cancelAllScheduledNotificationsAsync();
 };
 
-/** Programa (o reprograma) un aviso local un día antes del vencimiento, a las 9am. */
-export const scheduleReminderNotification = async (reminder: Reminder): Promise<void> => {
-  await cancelReminderNotification(reminder._id);
-  if (reminder.isPaid) return;
+/**
+ * Recalcula y reprograma desde cero los avisos locales de todos los recordatorios (llamar tras
+ * cada fetch de recordatorios, o tras cualquier cambio que afecte su programación: pago,
+ * edición, aplazamiento). Idempotente: cancela todo y vuelve a agendar el set completo.
+ */
+export const syncReminderNotifications = async (reminders: Reminder[], notificationsEnabled: boolean): Promise<void> => {
+  await cancelAllReminderNotifications();
+  if (!notificationsEnabled) return;
 
-  const dueDate = new Date(reminder.date);
-  const triggerDate = new Date(dueDate);
-  triggerDate.setDate(triggerDate.getDate() - 1);
-  triggerDate.setHours(9, 0, 0, 0);
-
-  if (triggerDate.getTime() <= Date.now()) return;
-
-  await Notifications.scheduleNotificationAsync({
-    identifier: notificationIdFor(reminder._id),
-    content: {
-      title: reminder.title,
-      body: reminder.amount
-        ? `Vence mañana · $${reminder.amount.toLocaleString('es-CO')}`
-        : 'Vence mañana',
-      data: { reminderId: reminder._id },
-    },
-    trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: triggerDate },
-  });
-};
-
-/** Sincroniza los avisos locales con la lista completa de recordatorios (llamar tras cada fetch). */
-export const syncReminderNotifications = async (reminders: Reminder[]): Promise<void> => {
   const { status } = await Notifications.getPermissionsAsync();
   if (status !== 'granted') return;
-  await Promise.all(reminders.map((r) => scheduleReminderNotification(r)));
+
+  const now = new Date();
+  const triggers = reminders
+    .flatMap((reminder) => computeNotificationTriggers(reminder, now))
+    .sort((a, b) => a.date.getTime() - b.date.getTime())
+    .slice(0, MAX_TOTAL_SCHEDULED);
+
+  await Promise.all(
+    triggers.map((trigger) =>
+      Notifications.scheduleNotificationAsync({
+        identifier: trigger.id,
+        content: {
+          title: trigger.title,
+          body: trigger.body,
+          data: { reminderId: trigger.reminderId },
+        },
+        trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: trigger.date },
+      })
+    )
+  );
 };

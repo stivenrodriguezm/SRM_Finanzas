@@ -9,10 +9,93 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { usePreferences } from '../context/PreferencesContext';
 import apiClient from '../services/apiClient';
 import { getErrorMessage } from '../utils/apiError';
-import { ReminderType } from '../types/models';
+import { ReminderType, ReminderNotificationMode } from '../types/models';
+import { DEFAULT_NOTIFICATION_CONFIG } from '../utils/reminderNotificationSchedule';
 import { RootStackParamList, AppNavigation } from '../navigation/types';
 
 type Colors = ReturnType<typeof usePreferences>['colors'];
+
+const ESCALATING_PRESETS = {
+  suave: { initialIntervalMinutes: 120, minIntervalMinutes: 60 },
+  intenso: { initialIntervalMinutes: 120, minIntervalMinutes: 30 },
+} as const;
+
+const INTERVAL_CHOICES = [30, 60, 120, 180];
+
+const formatInterval = (minutes: number): string => (minutes < 60 ? `${minutes} min` : `${minutes / 60} h`);
+
+const formatHour = (hour: number): string => {
+  const period = hour < 12 ? 'a. m.' : 'p. m.';
+  const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+  return `${hour12}:00 ${period}`;
+};
+
+const formatDaysBefore = (days: number): string => (days === 0 ? 'Mismo día' : days === 1 ? '1 día antes' : `${days} días antes`);
+
+interface StepperProps {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  onChange: (value: number) => void;
+  format: (value: number) => string;
+  colors: Colors;
+}
+
+function Stepper({ label, value, min, max, onChange, format, colors }: StepperProps) {
+  const styles = getStyles(colors);
+  return (
+    <View style={styles.stepperRow}>
+      <Text style={styles.stepperLabel}>{label}</Text>
+      <View style={styles.stepperControl}>
+        <TouchableOpacity
+          style={styles.stepperButton}
+          disabled={value <= min}
+          onPress={() => onChange(Math.max(min, value - 1))}
+        >
+          <Ionicons name="remove" size={16} color={value <= min ? colors.textMuted : colors.textPrimary} />
+        </TouchableOpacity>
+        <Text style={styles.stepperValue}>{format(value)}</Text>
+        <TouchableOpacity
+          style={styles.stepperButton}
+          disabled={value >= max}
+          onPress={() => onChange(Math.min(max, value + 1))}
+        >
+          <Ionicons name="add" size={16} color={value >= max ? colors.textMuted : colors.textPrimary} />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+interface ChipGroupProps {
+  label: string;
+  value: number;
+  options: number[];
+  onChange: (value: number) => void;
+  format: (value: number) => string;
+  colors: Colors;
+}
+
+function ChipGroup({ label, value, options, onChange, format, colors }: ChipGroupProps) {
+  const styles = getStyles(colors);
+  return (
+    <View style={{ marginBottom: 16 }}>
+      <Text style={styles.stepperLabel}>{label}</Text>
+      <View style={styles.chipRow}>
+        {options.map((opt) => (
+          <TouchableOpacity
+            key={opt}
+            style={[styles.chip, value === opt && styles.chipActive]}
+            onPress={() => onChange(opt)}
+          >
+            <Text style={[styles.chipText, value === opt && styles.chipTextActive]}>{format(opt)}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  );
+}
 
 export default function AddReminderScreen() {
   const { colors } = usePreferences();
@@ -40,6 +123,30 @@ export default function AddReminderScreen() {
   const [description, setDescription] = useState(reminderToEdit?.description || '');
   const [dayOfMonth, setDayOfMonth] = useState(reminderToEdit?.dayOfMonth ? reminderToEdit.dayOfMonth.toString() : '');
   const [dateText, setDateText] = useState(initialDateStr); // formato DD/MM/AAAA
+
+  const initialNotifConfig = reminderToEdit?.notificationConfig ?? DEFAULT_NOTIFICATION_CONFIG;
+  const [notificationMode, setNotificationMode] = useState<ReminderNotificationMode>(initialNotifConfig.mode);
+  const [daysBefore, setDaysBefore] = useState(initialNotifConfig.daysBefore);
+  const [hour, setHour] = useState(initialNotifConfig.hour);
+  const [startHour, setStartHour] = useState(initialNotifConfig.startHour);
+  const [endHour, setEndHour] = useState(initialNotifConfig.endHour);
+  const [initialIntervalMinutes, setInitialIntervalMinutes] = useState(initialNotifConfig.initialIntervalMinutes);
+  const [minIntervalMinutes, setMinIntervalMinutes] = useState(initialNotifConfig.minIntervalMinutes);
+  const initialPreset =
+    initialNotifConfig.initialIntervalMinutes === ESCALATING_PRESETS.suave.initialIntervalMinutes &&
+    initialNotifConfig.minIntervalMinutes === ESCALATING_PRESETS.suave.minIntervalMinutes
+      ? 'suave'
+      : initialNotifConfig.initialIntervalMinutes === ESCALATING_PRESETS.intenso.initialIntervalMinutes &&
+        initialNotifConfig.minIntervalMinutes === ESCALATING_PRESETS.intenso.minIntervalMinutes
+      ? 'intenso'
+      : 'personalizado';
+  const [escalatingPreset, setEscalatingPreset] = useState<'suave' | 'intenso' | 'personalizado'>(initialPreset);
+
+  const applyPreset = (preset: 'suave' | 'intenso') => {
+    setEscalatingPreset(preset);
+    setInitialIntervalMinutes(ESCALATING_PRESETS[preset].initialIntervalMinutes);
+    setMinIntervalMinutes(ESCALATING_PRESETS[preset].minIntervalMinutes);
+  };
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -112,7 +219,16 @@ export default function AddReminderScreen() {
         amount: rawAmount && rawAmount.length > 0 ? Number(rawAmount) : undefined,
         paymentLink: paymentLink && paymentLink.trim() ? paymentLink.trim() : undefined,
         description: description && description.trim() ? description.trim() : undefined,
-        dayOfMonth: reminderType === 'periodico' && dayOfMonth ? parseInt(dayOfMonth, 10) : undefined
+        dayOfMonth: reminderType === 'periodico' && dayOfMonth ? parseInt(dayOfMonth, 10) : undefined,
+        notificationConfig: {
+          mode: notificationMode,
+          daysBefore,
+          hour,
+          startHour,
+          endHour,
+          initialIntervalMinutes,
+          minIntervalMinutes,
+        },
       };
 
       if (isEditing) {
@@ -157,11 +273,11 @@ export default function AddReminderScreen() {
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Nombre del Recordatorio</Text>
             <View style={styles.inputContainer}>
-              <Ionicons name="notifications-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
+              <Ionicons name="notifications-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
               <TextInput
                 style={styles.textInput}
                 placeholder="Ej. Cuota Apartamento, Netflix..."
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.textMuted}
                 value={title}
                 onChangeText={setTitle}
               />
@@ -176,7 +292,7 @@ export default function AddReminderScreen() {
                 style={styles.amountInput}
                 placeholder="0"
                 keyboardType="numeric"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.textMuted}
                 value={amount}
                 onChangeText={setAmount}
               />
@@ -187,11 +303,11 @@ export default function AddReminderScreen() {
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Fecha de Vencimiento</Text>
               <View style={styles.inputContainer}>
-                <Ionicons name="calendar-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
+                <Ionicons name="calendar-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
                 <TextInput
                   style={styles.textInput}
                   placeholder="DD/MM/AAAA (Ej: 15/07/2026)"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={colors.textMuted}
                   keyboardType="numeric"
                   value={dateText}
                   onChangeText={handleDateTextChange}
@@ -203,12 +319,12 @@ export default function AddReminderScreen() {
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Día de pago (Cada mes)</Text>
               <View style={styles.inputContainer}>
-                <Ionicons name="repeat-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
+                <Ionicons name="repeat-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
                 <TextInput
                   style={styles.textInput}
                   placeholder="Día del mes (1 - 31)"
                   keyboardType="numeric"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={colors.textMuted}
                   maxLength={2}
                   value={dayOfMonth}
                   onChangeText={setDayOfMonth}
@@ -220,12 +336,12 @@ export default function AddReminderScreen() {
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Enlace de Pago (Opcional)</Text>
             <View style={styles.inputContainer}>
-              <Ionicons name="link-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
+              <Ionicons name="link-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
               <TextInput
                 style={styles.textInput}
                 placeholder="https://..."
                 keyboardType="url"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.textMuted}
                 autoCapitalize="none"
                 value={paymentLink}
                 onChangeText={setPaymentLink}
@@ -236,21 +352,119 @@ export default function AddReminderScreen() {
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Descripción / Notas</Text>
             <View style={[styles.inputContainer, { alignItems: 'flex-start' }]}>
-              <Ionicons name="document-text-outline" size={20} color="#9CA3AF" style={[styles.inputIcon, { marginTop: 4 }]} />
+              <Ionicons name="document-text-outline" size={20} color={colors.textMuted} style={[styles.inputIcon, { marginTop: 4 }]} />
               <TextInput
                 style={[styles.textInput, { minHeight: 80, textAlignVertical: 'top' }]}
                 placeholder="Añade detalles relevantes sobre este pago..."
                 multiline
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.textMuted}
                 value={description}
                 onChangeText={setDescription}
               />
             </View>
           </View>
 
+          <Text style={styles.sectionTitle}>Notificaciones</Text>
+          <View style={styles.typeSelectorContainer}>
+            <TouchableOpacity
+              style={[styles.typePill, notificationMode === 'default' && styles.typePillActive]}
+              onPress={() => setNotificationMode('default')}
+            >
+              <Text style={[styles.typeText, notificationMode === 'default' && styles.typeTextActive]}>Simple</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.typePill, notificationMode === 'escalating' && styles.typePillActive]}
+              onPress={() => setNotificationMode('escalating')}
+            >
+              <Text style={[styles.typeText, notificationMode === 'escalating' && styles.typeTextActive]}>Insistente</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.typePill, notificationMode === 'off' && styles.typePillActive]}
+              onPress={() => setNotificationMode('off')}
+            >
+              <Text style={[styles.typeText, notificationMode === 'off' && styles.typeTextActive]}>Apagado</Text>
+            </TouchableOpacity>
+          </View>
+
+          {notificationMode === 'default' && (
+            <View style={styles.notifConfigBox}>
+              <Stepper
+                label="Días de anticipación"
+                value={daysBefore}
+                min={0}
+                max={7}
+                onChange={setDaysBefore}
+                format={formatDaysBefore}
+                colors={colors}
+              />
+              <Stepper label="Hora del aviso" value={hour} min={0} max={23} onChange={setHour} format={formatHour} colors={colors} />
+            </View>
+          )}
+
+          {notificationMode === 'escalating' && (
+            <View style={styles.notifConfigBox}>
+              <Text style={styles.notifHint}>
+                Empieza cada {formatInterval(initialIntervalMinutes)} y va aumentando la frecuencia hasta cada{' '}
+                {formatInterval(minIntervalMinutes)}, entre las {formatHour(startHour)} y las {formatHour(endHour)}, mientras
+                siga sin pagarse.
+              </Text>
+              <View style={styles.chipRow}>
+                <TouchableOpacity
+                  style={[styles.chip, escalatingPreset === 'suave' && styles.chipActive]}
+                  onPress={() => applyPreset('suave')}
+                >
+                  <Text style={[styles.chipText, escalatingPreset === 'suave' && styles.chipTextActive]}>Suave</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.chip, escalatingPreset === 'intenso' && styles.chipActive]}
+                  onPress={() => applyPreset('intenso')}
+                >
+                  <Text style={[styles.chipText, escalatingPreset === 'intenso' && styles.chipTextActive]}>Intenso</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.chip, escalatingPreset === 'personalizado' && styles.chipActive]}
+                  onPress={() => setEscalatingPreset('personalizado')}
+                >
+                  <Text style={[styles.chipText, escalatingPreset === 'personalizado' && styles.chipTextActive]}>
+                    Personalizado
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {escalatingPreset === 'personalizado' && (
+                <>
+                  <Stepper label="Hora de inicio" value={startHour} min={0} max={23} onChange={setStartHour} format={formatHour} colors={colors} />
+                  <Stepper label="Hora límite" value={endHour} min={0} max={23} onChange={setEndHour} format={formatHour} colors={colors} />
+                  <ChipGroup
+                    label="Intervalo inicial"
+                    value={initialIntervalMinutes}
+                    options={INTERVAL_CHOICES}
+                    onChange={setInitialIntervalMinutes}
+                    format={formatInterval}
+                    colors={colors}
+                  />
+                  <ChipGroup
+                    label="Intervalo mínimo"
+                    value={minIntervalMinutes}
+                    options={INTERVAL_CHOICES}
+                    onChange={setMinIntervalMinutes}
+                    format={formatInterval}
+                    colors={colors}
+                  />
+                </>
+              )}
+            </View>
+          )}
+
+          {notificationMode === 'off' && (
+            <View style={styles.notifConfigBox}>
+              <Text style={styles.notifHint}>No recibirás notificaciones para este recordatorio.</Text>
+            </View>
+          )}
+
           <TouchableOpacity style={styles.saveButton} onPress={handleSave} disabled={isSubmitting}>
             {isSubmitting ? (
-              <ActivityIndicator color="#FFFFFF" />
+              <ActivityIndicator color={colors.primaryText} />
             ) : (
               <Text style={styles.saveButtonText}>
                 {isEditing ? 'Guardar Cambios' : 'Guardar Recordatorio'}
@@ -272,7 +486,7 @@ const getStyles = (colors: Colors) => StyleSheet.create({
   typePill: { flex: 1, paddingVertical: 12, alignItems: 'center', backgroundColor: colors.border, borderRadius: 24 },
   typePillActive: { backgroundColor: colors.primary },
   typeText: { fontSize: 14, fontWeight: '600', color: colors.textSecondary },
-  typeTextActive: { color: '#FFFFFF' },
+  typeTextActive: { color: colors.primaryText },
   inputGroup: { marginBottom: 20 },
   inputLabel: { fontSize: 14, fontWeight: '500', color: colors.textSecondary, marginBottom: 8 },
   amountInputContainer: {
@@ -289,11 +503,35 @@ const getStyles = (colors: Colors) => StyleSheet.create({
   },
   inputIcon: { marginRight: 12 },
   textInput: { flex: 1, fontSize: 16, color: colors.textPrimary },
+  notifConfigBox: {
+    backgroundColor: colors.card, borderRadius: 16, padding: 16,
+    borderWidth: 1, borderColor: colors.border, marginBottom: 24,
+  },
+  notifHint: { fontSize: 13, color: colors.textSecondary, lineHeight: 18, marginBottom: 12 },
+  stepperRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  stepperLabel: { fontSize: 14, color: colors.textPrimary, fontWeight: '500', flexShrink: 1, marginRight: 12 },
+  stepperControl: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  stepperButton: {
+    width: 30, height: 30, borderRadius: 15, backgroundColor: colors.iconBg,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  stepperValue: { fontSize: 14, fontWeight: '600', color: colors.textPrimary, minWidth: 78, textAlign: 'center' },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 4 },
+  chip: {
+    paddingVertical: 8, paddingHorizontal: 14, borderRadius: 16,
+    backgroundColor: colors.iconBg, borderWidth: 1, borderColor: colors.border,
+  },
+  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  chipText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
+  chipTextActive: { color: colors.primaryText },
   saveButton: {
     backgroundColor: colors.success,
     borderRadius: 16, paddingVertical: 16, alignItems: 'center', marginTop: 30,
     shadowColor: colors.success, shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3, shadowRadius: 10, elevation: 5,
   },
-  saveButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' },
+  saveButtonText: { color: colors.primaryText, fontSize: 16, fontWeight: 'bold' },
 });

@@ -16,33 +16,34 @@ import { RootStackParamList, AppNavigation } from '../navigation/types';
 type Colors = ReturnType<typeof usePreferences>['colors'];
 type RecordType = 'abono_deuda' | 'ingreso' | 'gasto';
 
-const TRANSACTION_TYPES: { key: RecordType; label: string; icon: keyof typeof Ionicons.glyphMap; color: string; bg: string }[] = [
+const getTransactionTypes = (colors: Colors): { key: RecordType; label: string; icon: keyof typeof Ionicons.glyphMap; color: string; bg: string }[] => [
   {
     key: 'abono_deuda',
     label: 'Abono a Deuda',
     icon: 'return-down-back',
-    color: '#7C3AED',
-    bg: '#EDE9FE',
+    color: colors.purple,
+    bg: colors.purpleLight,
   },
   {
     key: 'ingreso',
     label: 'Ingreso',
     icon: 'arrow-up-circle',
-    color: '#16A34A',
-    bg: '#DCFCE7',
+    color: colors.successText,
+    bg: colors.successLight,
   },
   {
     key: 'gasto',
     label: 'Gasto',
     icon: 'arrow-down-circle',
-    color: '#DC2626',
-    bg: '#FEE2E2',
+    color: colors.danger,
+    bg: colors.dangerLight,
   },
 ];
 
 export default function AddRecordScreen() {
   const { colors } = usePreferences();
   const styles = getStyles(colors);
+  const TRANSACTION_TYPES = getTransactionTypes(colors);
   const navigation = useNavigation<AppNavigation>();
   const route = useRoute<RouteProp<RootStackParamList, 'AddRecord'>>();
 
@@ -193,7 +194,7 @@ export default function AddRecordScreen() {
                   style={[
                     styles.typeCard,
                     isActive && { borderColor: type.color, borderWidth: 2 },
-                    { backgroundColor: isActive ? type.bg : '#F3F4F6' },
+                    { backgroundColor: isActive ? type.bg : colors.iconBg },
                   ]}
                   onPress={() => setRecordType(type.key)}
                   activeOpacity={0.75}
@@ -201,7 +202,7 @@ export default function AddRecordScreen() {
                   <Ionicons
                     name={type.icon}
                     size={22}
-                    color={isActive ? type.color : '#9CA3AF'}
+                    color={isActive ? type.color : colors.textMuted}
                   />
                   <Text
                     style={[
@@ -225,7 +226,7 @@ export default function AddRecordScreen() {
                 style={styles.amountInput}
                 placeholder="0"
                 keyboardType="numeric"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.textMuted}
                 value={amount}
                 onChangeText={setAmount}
               />
@@ -237,11 +238,11 @@ export default function AddRecordScreen() {
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Concepto o Descripción</Text>
               <View style={styles.inputContainer}>
-                <Ionicons name="document-text-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
+                <Ionicons name="document-text-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
                 <TextInput
                   style={styles.textInput}
                   placeholder="Ej. Salario, Cena, Pago tarjeta..."
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={colors.textMuted}
                   value={concept}
                   onChangeText={setConcept}
                 />
@@ -257,11 +258,11 @@ export default function AddRecordScreen() {
                 style={styles.inputContainer}
                 onPress={() => openAccountModal('origin')}
               >
-                <Ionicons name="wallet-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
-                <Text style={[styles.textInput, !selectedOriginAccount && { color: '#9CA3AF' }]}>
+                <Ionicons name="wallet-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
+                <Text style={[styles.textInput, !selectedOriginAccount && { color: colors.textMuted }]}>
                   {getAccountName(selectedOriginAccount) || '¿De dónde sale el dinero?'}
                 </Text>
-                <Ionicons name="chevron-down" size={20} color="#9CA3AF" />
+                <Ionicons name="chevron-down" size={20} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
           )}
@@ -274,11 +275,11 @@ export default function AddRecordScreen() {
                 style={styles.inputContainer}
                 onPress={() => openAccountModal('dest')}
               >
-                <Ionicons name="log-in-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
-                <Text style={[styles.textInput, !selectedDestAccount && { color: '#9CA3AF' }]}>
+                <Ionicons name="log-in-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
+                <Text style={[styles.textInput, !selectedDestAccount && { color: colors.textMuted }]}>
                   {getAccountName(selectedDestAccount) || '¿A dónde entra el dinero?'}
                 </Text>
-                <Ionicons name="chevron-down" size={20} color="#9CA3AF" />
+                <Ionicons name="chevron-down" size={20} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
           )}
@@ -291,11 +292,11 @@ export default function AddRecordScreen() {
                 style={styles.inputContainer}
                 onPress={() => setDebtModalVisible(true)}
               >
-                <Ionicons name="card-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
-                <Text style={[styles.textInput, !selectedDebt && { color: '#9CA3AF' }]}>
+                <Ionicons name="card-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
+                <Text style={[styles.textInput, !selectedDebt && { color: colors.textMuted }]}>
                   {getDebtName(selectedDebt) || 'Selecciona la deuda a abonar'}
                 </Text>
-                <Ionicons name="chevron-down" size={20} color="#9CA3AF" />
+                <Ionicons name="chevron-down" size={20} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
           )}
@@ -307,7 +308,7 @@ export default function AddRecordScreen() {
             disabled={isSubmitting}
           >
             {isSubmitting ? (
-              <ActivityIndicator color="#FFFFFF" />
+              <ActivityIndicator color={colors.primaryText} />
             ) : (
               <Text style={styles.saveButtonText}>Guardar Transacción</Text>
             )}
@@ -328,7 +329,7 @@ export default function AddRecordScreen() {
                   style={styles.modalItem}
                   onPress={() => handleAccountSelection(acc._id)}
                 >
-                  <Ionicons name={(acc.icon || 'wallet-outline') as any} size={20} color={acc.color || '#3B82F6'} />
+                  <Ionicons name={(acc.icon || 'wallet-outline') as any} size={20} color={acc.color || colors.info} />
                   <View style={{ marginLeft: 12, flex: 1 }}>
                     <Text style={styles.modalItemName}>{acc.name}</Text>
                     <Text style={styles.modalItemBalance}>
@@ -338,7 +339,7 @@ export default function AddRecordScreen() {
                 </TouchableOpacity>
               ))}
               {accounts.length === 0 && (
-                <Text style={{ textAlign: 'center', color: '#9CA3AF', padding: 20 }}>
+                <Text style={{ textAlign: 'center', color: colors.textMuted, padding: 20 }}>
                   No tienes cuentas registradas
                 </Text>
               )}
@@ -365,17 +366,17 @@ export default function AddRecordScreen() {
                     setDebtModalVisible(false);
                   }}
                 >
-                  <Ionicons name={(debt.icon || 'person') as any} size={20} color={debt.color || '#EF4444'} />
+                  <Ionicons name={(debt.icon || 'person') as any} size={20} color={debt.color || colors.danger} />
                   <View style={{ marginLeft: 12, flex: 1 }}>
                     <Text style={styles.modalItemName}>{debt.name}</Text>
-                    <Text style={[styles.modalItemBalance, { color: '#EF4444' }]}>
+                    <Text style={[styles.modalItemBalance, { color: colors.danger }]}>
                       Restante: $ {debt.remainingAmount.toLocaleString('es-CO')}
                     </Text>
                   </View>
                 </TouchableOpacity>
               ))}
               {debts.length === 0 && (
-                <Text style={{ textAlign: 'center', color: '#9CA3AF', padding: 20 }}>
+                <Text style={{ textAlign: 'center', color: colors.textMuted, padding: 20 }}>
                   No tienes deudas activas
                 </Text>
               )}
@@ -417,7 +418,7 @@ const getStyles = (colors: Colors) => StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 8,
     borderRadius: 16,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.iconBg,
     gap: 6,
     borderWidth: 2,
     borderColor: 'transparent',
@@ -425,7 +426,7 @@ const getStyles = (colors: Colors) => StyleSheet.create({
   typeCardLabel: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#9CA3AF',
+    color: colors.textMuted,
     textAlign: 'center',
   },
   inputGroup: {
@@ -490,7 +491,7 @@ const getStyles = (colors: Colors) => StyleSheet.create({
     elevation: 5,
   },
   saveButtonText: {
-    color: '#FFFFFF',
+    color: colors.primaryText,
     fontSize: 16,
     fontWeight: 'bold',
   },

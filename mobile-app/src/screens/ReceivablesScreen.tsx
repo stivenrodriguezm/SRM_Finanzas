@@ -53,7 +53,7 @@ export default function ReceivablesScreen() {
       <ScrollView 
       contentContainerStyle={styles.container} 
       showsVerticalScrollIndicator={false}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#059669" />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.success} />}
     >
 
         <View style={styles.header}>
@@ -63,8 +63,8 @@ export default function ReceivablesScreen() {
 
         {/* Resumen Total */}
         <View style={styles.summaryCard}>
-          <View style={[styles.summaryIconContainer, { backgroundColor: '#DCFCE7' }]}>
-            <Ionicons name="wallet-outline" size={24} color="#16A34A" />
+          <View style={[styles.summaryIconContainer, { backgroundColor: colors.successLight }]}>
+            <Ionicons name="wallet-outline" size={24} color={colors.successText} />
           </View>
           <View style={styles.summaryInfo}>
             <Text style={styles.summaryLabel}>Total que me deben</Text>
@@ -76,17 +76,17 @@ export default function ReceivablesScreen() {
 
         {isLoading ? (
           <View style={{ marginTop: 20 }}>
-            <ActivityIndicator size="large" color="#10B981" />
+            <ActivityIndicator size="large" color={colors.success} />
           </View>
         ) : receivables.length === 0 ? (
-          <Text style={{ textAlign: 'center', color: '#6B7280', marginTop: 20 }}>No tienes préstamos registrados.</Text>
+          <Text style={{ textAlign: 'center', color: colors.textSecondary, marginTop: 20 }}>No tienes préstamos registrados.</Text>
         ) : (
           receivables.map(item => (
             <View key={item._id} style={styles.debtCard}>
               <View style={styles.debtHeader}>
                 <View style={styles.debtTitleContainer}>
-                  <View style={[styles.iconPill, { backgroundColor: '#DCFCE7' }]}>
-                    <Ionicons name={(item.icon || 'person') as any} size={16} color="#16A34A" />
+                  <View style={[styles.iconPill, { backgroundColor: colors.successLight }]}>
+                    <Ionicons name={(item.icon || 'person') as any} size={16} color={colors.successText} />
                   </View>
                   <View>
                     <Text style={styles.debtName}>{item.name}</Text>
@@ -101,10 +101,10 @@ export default function ReceivablesScreen() {
                     id: item._id,
                     title: item.name,
                     total: `$ ${item.remainingAmount.toLocaleString('es-CO')}`,
-                    color: '#16A34A',
+                    color: colors.successText,
                     icon: item.icon || 'person',
-                    iconColor: '#16A34A',
-                    iconBg: '#DCFCE7',
+                    iconColor: colors.successText,
+                    iconBg: colors.successLight,
                     type: 'me_deben'
                   })}
                 >
@@ -114,7 +114,7 @@ export default function ReceivablesScreen() {
               <Text style={styles.debtTotalValue}>
                 $ {item.remainingAmount.toLocaleString('es-CO')}
                 {item.totalAmount > item.remainingAmount && (
-                  <Text style={{ fontSize: 12, color: '#6B7280' }}> (Total: $ {item.totalAmount.toLocaleString('es-CO')})</Text>
+                  <Text style={{ fontSize: 12, color: colors.textSecondary }}> (Total: $ {item.totalAmount.toLocaleString('es-CO')})</Text>
                 )}
               </Text>
             </View>
@@ -130,7 +130,7 @@ export default function ReceivablesScreen() {
           style={styles.addButton}
           onPress={() => navigation.navigate('AddDebt', { initialDebtType: 'me_deben' })}
         >
-          <Ionicons name="add" size={24} color="#FFFFFF" />
+          <Ionicons name="add" size={24} color={colors.primaryText} />
           <Text style={styles.addButtonText}>Nuevo Préstamo</Text>
         </TouchableOpacity>
       </View>
@@ -224,5 +224,5 @@ const getStyles = (colors: Colors) => StyleSheet.create({
     shadowRadius: 10,
     elevation: 5,
   },
-  addButtonText: { color: colors.card, fontSize: 16, fontWeight: '600', marginLeft: 8 },
+  addButtonText: { color: colors.primaryText, fontSize: 16, fontWeight: '600', marginLeft: 8 },
 });

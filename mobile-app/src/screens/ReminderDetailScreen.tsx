@@ -2,17 +2,19 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, Linking, Alert, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRoute, useNavigation, useFocusEffect, RouteProp } from '@react-navigation/native';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { usePreferences } from '../context/PreferencesContext';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../services/apiClient';
 import { getErrorMessage } from '../utils/apiError';
-import { Account, Transaction } from '../types/models';
+import { syncReminderNotifications } from '../services/notifications';
+import { Account, Transaction, Reminder } from '../types/models';
 import { RootStackParamList, AppNavigation } from '../navigation/types';
 
 type Colors = ReturnType<typeof usePreferences>['colors'];
 
 export default function ReminderDetailScreen() {
-  const { colors } = usePreferences();
+  const { colors, preferences, isDark } = usePreferences();
   const styles = getStyles(colors);
   const route = useRoute<RouteProp<RootStackParamList, 'ReminderDetail'>>();
   const navigation = useNavigation<AppNavigation>();
@@ -27,6 +29,13 @@ export default function ReminderDetailScreen() {
   const [isPaymentModalVisible, setPaymentModalVisible] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState(reminder?.amount ? String(reminder.amount) : '');
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+
+  const [snoozedUntil, setSnoozedUntil] = useState<string | null>(reminder?.snoozedUntil ?? null);
+  const [showSnoozePicker, setShowSnoozePicker] = useState(false);
+  const [snoozeDraft, setSnoozeDraft] = useState<Date>(
+    reminder?.snoozedUntil ? new Date(reminder.snoozedUntil) : new Date(Date.now() + 24 * 60 * 60 * 1000)
+  );
+  const [isSnoozing, setIsSnoozing] = useState(false);
 
   const fetchData = React.useCallback(async () => {
     if (!reminder) return;
@@ -58,6 +67,28 @@ export default function ReminderDetailScreen() {
       </SafeAreaView>
     );
   }
+
+  const isSnoozed = !!snoozedUntil && new Date(snoozedUntil).getTime() >= new Date().setHours(0, 0, 0, 0);
+
+  const applySnooze = async (date: Date | null) => {
+    setIsSnoozing(true);
+    try {
+      await apiClient.put(`/reminders/${reminder._id}`, { snoozedUntil: date ? date.toISOString() : null });
+      setSnoozedUntil(date ? date.toISOString() : null);
+      setShowSnoozePicker(false);
+      const { data } = await apiClient.get<Reminder[]>('/reminders');
+      syncReminderNotifications(data, preferences.remindersNotifications).catch(() => {});
+    } catch (error) {
+      Alert.alert('Error', getErrorMessage(error, 'No se pudo actualizar el aplazamiento.'));
+    } finally {
+      setIsSnoozing(false);
+    }
+  };
+
+  const handleSnoozeDraftChange = (_event: DateTimePickerEvent, date?: Date) => {
+    if (Platform.OS === 'android') setShowSnoozePicker(false);
+    if (date) setSnoozeDraft(date);
+  };
 
   const handlePayment = () => {
     if (reminder.paymentLink) {
@@ -123,14 +154,35 @@ export default function ReminderDetailScreen() {
       <ScrollView contentContainerStyle={styles.container}>
         
         <View style={styles.card}>
-          <View style={[styles.iconContainer, isUrgent ? { backgroundColor: '#FEF2F2' } : { backgroundColor: '#F3F4F6' }]}>
-            <Ionicons name="notifications" size={32} color={isUrgent ? '#EF4444' : '#4B5563'} />
+          <View style={[styles.iconContainer, { backgroundColor: isUrgent ? colors.dangerLight : colors.iconBg }]}>
+            <Ionicons name="notifications" size={32} color={isUrgent ? colors.danger : colors.textSecondary} />
           </View>
-          
+
           <Text style={styles.title}>{reminder.title}</Text>
-          <Text style={[styles.date, isUrgent && { color: '#EF4444', fontWeight: '600' }]}>{dateText}</Text>
+          <Text style={[styles.date, isUrgent && { color: colors.danger, fontWeight: '600' }]}>{dateText}</Text>
+
+          {(reminder.notificationConfig?.mode === 'escalating' || isSnoozed) && (
+            <View style={styles.badgeRow}>
+              {reminder.notificationConfig?.mode === 'escalating' && (
+                <View style={styles.badge}>
+                  <Ionicons name="notifications" size={12} color={colors.primary} />
+                  <Text style={styles.badgeText}>Notificaciones insistentes</Text>
+                </View>
+              )}
+              {isSnoozed && snoozedUntil && (
+                <View style={[styles.badge, { backgroundColor: colors.infoLight || colors.iconBg }]}>
+                  <Ionicons name="time-outline" size={12} color={colors.info || colors.primary} />
+                  <Text style={styles.badgeText}>
+                    Aplazado hasta{' '}
+                    {new Date(snoozedUntil).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
+
           <Text style={styles.amount}>{amountFormatted}</Text>
-          
+
           <View style={styles.divider} />
           
           {reminder.description ? (
@@ -152,7 +204,7 @@ export default function ReminderDetailScreen() {
           ) : null}
 
           {!reminder.description && !reminder.paymentLink && (
-            <Text style={{ color: '#9CA3AF', fontStyle: 'italic', marginBottom: 20 }}>
+            <Text style={{ color: colors.textMuted, fontStyle: 'italic', marginBottom: 20 }}>
               Sin detalles adicionales.
             </Text>
           )}
@@ -162,21 +214,61 @@ export default function ReminderDetailScreen() {
           {reminder.paymentLink && (
             <TouchableOpacity style={styles.payButton} onPress={handlePayment}>
               <Text style={styles.payButtonText}>Pagar en Línea</Text>
-              <Ionicons name="open-outline" size={20} color="#FFFFFF" style={{marginLeft: 8}} />
+              <Ionicons name="open-outline" size={20} color={colors.primaryText} style={{marginLeft: 8}} />
             </TouchableOpacity>
           )}
 
           <TouchableOpacity style={styles.markPaidButton} onPress={() => setPaymentModalVisible(true)} disabled={isSubmitting}>
             <Text style={styles.markPaidButtonText}>Agregar Pago</Text>
-            <Ionicons name="cash-outline" size={20} color="#059669" style={{marginLeft: 8}} />
+            <Ionicons name="cash-outline" size={20} color={colors.success} style={{marginLeft: 8}} />
           </TouchableOpacity>
 
-          <TouchableOpacity 
+          <TouchableOpacity
+            style={styles.editButton}
+            onPress={() => setShowSnoozePicker(true)}
+            disabled={isSnoozing}
+          >
+            <Text style={styles.editButtonText}>{isSnoozed ? 'Cambiar aplazamiento' : 'Aplazar Notificaciones'}</Text>
+            <Ionicons name="time-outline" size={18} color={colors.textSecondary} style={{ marginLeft: 8 }} />
+          </TouchableOpacity>
+
+          {isSnoozed && (
+            <TouchableOpacity onPress={() => applySnooze(null)} disabled={isSnoozing}>
+              <Text style={styles.removeSnoozeText}>Quitar aplazamiento</Text>
+            </TouchableOpacity>
+          )}
+
+          {showSnoozePicker && (
+            <View style={Platform.OS === 'ios' ? styles.iosDatePickerWrapper : undefined}>
+              <DateTimePicker
+                value={snoozeDraft}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                minimumDate={new Date()}
+                themeVariant={isDark ? 'dark' : 'light'}
+                accentColor={colors.primary}
+                onChange={handleSnoozeDraftChange}
+                style={Platform.OS === 'ios' ? { backgroundColor: colors.card } : undefined}
+              />
+            </View>
+          )}
+
+          {showSnoozePicker && (
+            <TouchableOpacity
+              style={styles.dateConfirmBtn}
+              onPress={() => applySnooze(snoozeDraft)}
+              disabled={isSnoozing}
+            >
+              {isSnoozing ? <ActivityIndicator color={colors.primaryText} /> : <Text style={styles.dateConfirmText}>Confirmar aplazamiento</Text>}
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity
             style={styles.editButton}
             onPress={() => navigation.navigate('AddReminder', { reminder })}
           >
             <Text style={styles.editButtonText}>Modificar Recordatorio</Text>
-            <Ionicons name="pencil-outline" size={18} color="#4B5563" style={{marginLeft: 8}} />
+            <Ionicons name="pencil-outline" size={18} color={colors.textSecondary} style={{marginLeft: 8}} />
           </TouchableOpacity>
 
           <TouchableOpacity 
@@ -184,7 +276,7 @@ export default function ReminderDetailScreen() {
             onPress={handleDeleteReminder}
           >
             <Text style={styles.deleteButtonText}>Eliminar Recordatorio</Text>
-            <Ionicons name="trash-outline" size={18} color="#EF4444" style={{marginLeft: 8}} />
+            <Ionicons name="trash-outline" size={18} color={colors.danger} style={{marginLeft: 8}} />
           </TouchableOpacity>
         </View>
 
@@ -194,7 +286,7 @@ export default function ReminderDetailScreen() {
             {payments.map(payment => (
               <View key={payment._id} style={styles.paymentItem}>
                 <View style={styles.paymentIcon}>
-                  <Ionicons name="checkmark-done-circle" size={24} color="#059669" />
+                  <Ionicons name="checkmark-done-circle" size={24} color={colors.success} />
                 </View>
                 <View style={styles.paymentInfo}>
                   <Text style={styles.paymentDate}>
@@ -222,7 +314,7 @@ export default function ReminderDetailScreen() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Registrar Pago</Text>
               <TouchableOpacity onPress={() => setPaymentModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#4B5563" />
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -231,11 +323,11 @@ export default function ReminderDetailScreen() {
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Monto pagado</Text>
                 <View style={styles.inputContainer}>
-                  <Text style={{ fontSize: 16, color: '#9CA3AF', marginRight: 4 }}>$</Text>
+                  <Text style={{ fontSize: 16, color: colors.textMuted, marginRight: 4 }}>$</Text>
                   <TextInput
                     style={styles.textInput}
                     placeholder="0"
-                    placeholderTextColor="#9CA3AF"
+                    placeholderTextColor={colors.textMuted}
                     keyboardType="numeric"
                     value={paymentAmount}
                     onChangeText={setPaymentAmount}
@@ -253,13 +345,13 @@ export default function ReminderDetailScreen() {
                     onPress={() => setSelectedAccountId(acc._id)}
                   >
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <View style={[styles.accountOptionIcon, { backgroundColor: acc.color || '#E5E7EB' }]}>
-                        <Ionicons name={(acc.icon || 'wallet') as any} size={16} color="#fff" />
+                      <View style={[styles.accountOptionIcon, { backgroundColor: acc.color || colors.iconBg }]}>
+                        <Ionicons name={(acc.icon || 'wallet') as any} size={16} color={colors.white} />
                       </View>
                       <Text style={styles.accountOptionName}>{acc.name}</Text>
                     </View>
                     {selectedAccountId === acc._id && (
-                      <Ionicons name="checkmark-circle" size={24} color="#059669" />
+                      <Ionicons name="checkmark-circle" size={24} color={colors.success} />
                     )}
                   </TouchableOpacity>
                 ))}
@@ -267,7 +359,7 @@ export default function ReminderDetailScreen() {
 
               <TouchableOpacity style={styles.submitPaymentButton} onPress={submitPayment} disabled={isSubmitting}>
                 {isSubmitting ? (
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color={colors.primaryText} />
                 ) : (
                   <Text style={styles.submitPaymentText}>Guardar Pago</Text>
                 )}
@@ -318,7 +410,54 @@ const getStyles = (colors: Colors) => StyleSheet.create({
   date: {
     fontSize: 14,
     color: colors.textSecondary,
-    marginBottom: 16,
+    marginBottom: 4,
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.transparentBg || colors.iconBg,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    gap: 4,
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  removeSnoozeText: {
+    textAlign: 'center',
+    color: colors.textSecondary,
+    fontSize: 13,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
+    marginBottom: 4,
+  },
+  iosDatePickerWrapper: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+  },
+  dateConfirmBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  dateConfirmText: {
+    color: colors.primaryText,
+    fontWeight: '600',
+    fontSize: 15,
   },
   amount: {
     fontSize: 36,
@@ -328,7 +467,7 @@ const getStyles = (colors: Colors) => StyleSheet.create({
   },
   divider: {
     height: 1,
-    backgroundColor: colors.iconBg || '#F3F4F6',
+    backgroundColor: colors.iconBg,
     width: '100%',
     marginBottom: 24,
   },
@@ -349,7 +488,7 @@ const getStyles = (colors: Colors) => StyleSheet.create({
   },
   linkText: {
     fontSize: 14,
-    color: colors.info || '#3B82F6',
+    color: colors.info,
     textDecorationLine: 'underline',
   },
   actionsContainer: {
@@ -369,12 +508,12 @@ const getStyles = (colors: Colors) => StyleSheet.create({
     elevation: 5,
   },
   payButtonText: {
-    color: '#FFFFFF',
+    color: colors.primaryText,
     fontSize: 16,
     fontWeight: 'bold',
   },
   markPaidButton: {
-    backgroundColor: '#D1FAE5',
+    backgroundColor: colors.successLight,
     borderRadius: 16,
     paddingVertical: 18,
     flexDirection: 'row',
@@ -382,7 +521,7 @@ const getStyles = (colors: Colors) => StyleSheet.create({
     alignItems: 'center',
   },
   markPaidButtonText: {
-    color: '#059669',
+    color: colors.successText,
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -394,7 +533,7 @@ const getStyles = (colors: Colors) => StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: colors.border || '#E5E7EB',
+    borderColor: colors.border,
   },
   editButtonText: {
     color: colors.textSecondary,
@@ -402,7 +541,7 @@ const getStyles = (colors: Colors) => StyleSheet.create({
     fontWeight: '600',
   },
   deleteButton: {
-    backgroundColor: '#FEF2F2',
+    backgroundColor: colors.dangerLight,
     borderRadius: 16,
     paddingVertical: 16,
     flexDirection: 'row',
@@ -411,7 +550,7 @@ const getStyles = (colors: Colors) => StyleSheet.create({
     marginTop: 8,
   },
   deleteButtonText: {
-    color: '#EF4444',
+    color: colors.danger,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -432,7 +571,7 @@ const getStyles = (colors: Colors) => StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: colors.border,
   },
   paymentIcon: {
     marginRight: 12,
@@ -461,7 +600,7 @@ const getStyles = (colors: Colors) => StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
@@ -476,7 +615,7 @@ const getStyles = (colors: Colors) => StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#1F2937',
+    color: colors.textPrimary,
   },
   inputGroup: {
     marginBottom: 20,
@@ -484,15 +623,15 @@ const getStyles = (colors: Colors) => StyleSheet.create({
   inputLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#4B5563',
+    color: colors.textSecondary,
     marginBottom: 8,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: colors.iconBg,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: colors.border,
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 50,
@@ -500,22 +639,22 @@ const getStyles = (colors: Colors) => StyleSheet.create({
   textInput: {
     flex: 1,
     fontSize: 16,
-    color: '#1F2937',
+    color: colors.textPrimary,
   },
   accountOption: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 16,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: colors.iconBg,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: colors.border,
     borderRadius: 12,
     marginBottom: 8,
   },
   accountOptionSelected: {
-    backgroundColor: '#ECFDF5',
-    borderColor: '#34D399',
+    backgroundColor: colors.successLight,
+    borderColor: colors.success,
   },
   accountOptionIcon: {
     width: 32,
@@ -527,11 +666,11 @@ const getStyles = (colors: Colors) => StyleSheet.create({
   },
   accountOptionName: {
     fontSize: 16,
-    color: '#1F2937',
+    color: colors.textPrimary,
     fontWeight: '500',
   },
   submitPaymentButton: {
-    backgroundColor: '#059669',
+    backgroundColor: colors.success,
     borderRadius: 16,
     height: 56,
     justifyContent: 'center',
@@ -539,7 +678,7 @@ const getStyles = (colors: Colors) => StyleSheet.create({
     marginTop: 20,
   },
   submitPaymentText: {
-    color: '#fff',
+    color: colors.primaryText,
     fontSize: 16,
     fontWeight: 'bold',
   }

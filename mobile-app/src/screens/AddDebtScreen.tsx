@@ -18,7 +18,7 @@ import { RootStackParamList, AppNavigation } from '../navigation/types';
 type Colors = ReturnType<typeof usePreferences>['colors'];
 
 export default function AddDebtScreen() {
-  const { colors } = usePreferences();
+  const { colors, isDark } = usePreferences();
   const styles = getStyles(colors);
   const navigation = useNavigation<AppNavigation>();
   const route = useRoute<RouteProp<RootStackParamList, 'AddDebt'>>();
@@ -166,11 +166,11 @@ export default function AddDebtScreen() {
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Nombre de la persona o entidad</Text>
             <View style={styles.inputContainer}>
-              <Ionicons name="person-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
+              <Ionicons name="person-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
               <TextInput
                 style={styles.textInput}
                 placeholder="Ej. Juan Pérez, Banco..."
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.textMuted}
                 value={name}
                 onChangeText={setName}
               />
@@ -187,7 +187,7 @@ export default function AddDebtScreen() {
                   style={styles.amountInput}
                   placeholder="0.00"
                   keyboardType="numeric"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={colors.textMuted}
                   value={amount}
                   onChangeText={setAmount}
                 />
@@ -203,13 +203,13 @@ export default function AddDebtScreen() {
               onPress={() => setShowDatePicker(true)}
               activeOpacity={0.7}
             >
-              <Ionicons name="calendar-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
-              <Text style={[styles.textInput, !selectedDate && { color: '#9CA3AF' }]}>
+              <Ionicons name="calendar-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
+              <Text style={[styles.textInput, !selectedDate && { color: colors.textMuted }]}>
                 {selectedDate ? formatDate(selectedDate) : 'Seleccionar fecha'}
               </Text>
               {selectedDate && (
                 <TouchableOpacity onPress={() => setSelectedDate(null)}>
-                  <Ionicons name="close-circle" size={18} color="#9CA3AF" />
+                  <Ionicons name="close-circle" size={18} color={colors.textMuted} />
                 </TouchableOpacity>
               )}
             </TouchableOpacity>
@@ -222,8 +222,8 @@ export default function AddDebtScreen() {
                   mode="date"
                   display={Platform.OS === 'ios' ? 'inline' : 'default'}
                   minimumDate={new Date()}
-                  themeVariant="light"
-                  accentColor="#1E293B"
+                  themeVariant={isDark ? 'dark' : 'light'}
+                  accentColor={colors.primary}
                   onChange={handleDateChange}
                   style={Platform.OS === 'ios' ? styles.iosDatePicker : undefined}
                 />
@@ -248,14 +248,14 @@ export default function AddDebtScreen() {
               <Ionicons
                 name="document-text-outline"
                 size={20}
-                color="#9CA3AF"
+                color={colors.textMuted}
                 style={[styles.inputIcon, { marginTop: 4 }]}
               />
               <TextInput
                 style={[styles.textInput, { minHeight: 80, textAlignVertical: 'top' }]}
                 placeholder="Motivo del préstamo, condiciones..."
                 multiline
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.textMuted}
                 value={description}
                 onChangeText={setDescription}
               />
@@ -272,7 +272,7 @@ export default function AddDebtScreen() {
                   onPress={() => setIsActive(true)}
                   activeOpacity={0.75}
                 >
-                  <View style={[styles.statusDot, { backgroundColor: isActive ? '#059669' : '#9CA3AF' }]} />
+                  <View style={[styles.statusDot, { backgroundColor: isActive ? colors.success : colors.textMuted }]} />
                   <Text style={[styles.statusPillText, isActive && styles.statusPillTextActive]}>
                     Activa
                   </Text>
@@ -282,7 +282,7 @@ export default function AddDebtScreen() {
                   onPress={() => setIsActive(false)}
                   activeOpacity={0.75}
                 >
-                  <View style={[styles.statusDot, { backgroundColor: !isActive ? '#DC2626' : '#9CA3AF' }]} />
+                  <View style={[styles.statusDot, { backgroundColor: !isActive ? colors.danger : colors.textMuted }]} />
                   <Text style={[styles.statusPillText, !isActive && styles.statusPillTextInactive]}>
                     Desactivada
                   </Text>
@@ -298,7 +298,7 @@ export default function AddDebtScreen() {
 
           <TouchableOpacity style={styles.saveButton} onPress={handleSave} disabled={isSubmitting}>
             {isSubmitting ? (
-              <ActivityIndicator color="#FFFFFF" />
+              <ActivityIndicator color={colors.primaryText} />
             ) : (
               <Text style={styles.saveButtonText}>
                 {isModifyMode ? 'Guardar Cambios' : 'Guardar Deuda'}
@@ -332,7 +332,7 @@ const getStyles = (colors: Colors) => StyleSheet.create({
   },
   typePillActive: { backgroundColor: colors.primary },
   typeText: { fontSize: 14, fontWeight: '600', color: colors.textSecondary },
-  typeTextActive: { color: colors.card },
+  typeTextActive: { color: colors.primaryText },
   inputGroup: { marginBottom: 20 },
   inputLabel: { fontSize: 14, fontWeight: '500', color: colors.textSecondary, marginBottom: 8 },
   amountInputContainer: {
@@ -391,7 +391,7 @@ const getStyles = (colors: Colors) => StyleSheet.create({
     shadowRadius: 10,
     elevation: 5,
   },
-  saveButtonText: { color: colors.card, fontSize: 16, fontWeight: 'bold' },
+  saveButtonText: { color: colors.primaryText, fontSize: 16, fontWeight: 'bold' },
 
   // ── Estado activa/inactiva (tarea B) ──
   statusContainer: {
@@ -412,7 +412,7 @@ const getStyles = (colors: Colors) => StyleSheet.create({
     gap: 8,
   },
   statusPillActive: {
-    backgroundColor: '#ECFDF5',
+    backgroundColor: colors.successLight,
     borderColor: colors.success,
   },
   statusPillInactive: {
@@ -437,14 +437,14 @@ const getStyles = (colors: Colors) => StyleSheet.create({
   },
   statusWarning: {
     fontSize: 12,
-    color: '#B45309',
+    color: colors.warning,
     marginTop: 10,
-    backgroundColor: '#FFFBEB',
+    backgroundColor: colors.warningLight,
     padding: 10,
     borderRadius: 10,
     lineHeight: 18,
     borderLeftWidth: 3,
-    borderLeftColor: '#F59E0B',
+    borderLeftColor: colors.warning,
   },
 });
 

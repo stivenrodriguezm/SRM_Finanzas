@@ -30,11 +30,11 @@ const COLOR_PALETTE = [
 
 const ICONS = ['wallet', 'card', 'cash', 'home', 'car', 'school', 'briefcase', 'bag'];
 
-const TX_LABELS: Record<TransactionType, { label: string; color: string; icon: keyof typeof Ionicons.glyphMap }> = {
-  ingreso: { label: 'Ingreso', color: '#059669', icon: 'arrow-up-circle' },
-  egreso: { label: 'Gasto', color: '#B45309', icon: 'arrow-down-circle' },
-  abono_deuda: { label: 'Abono', color: '#7C3AED', icon: 'return-down-back' },
-};
+const getTxLabels = (colors: Colors): Record<TransactionType, { label: string; color: string; icon: keyof typeof Ionicons.glyphMap }> => ({
+  ingreso: { label: 'Ingreso', color: colors.success, icon: 'arrow-up-circle' },
+  egreso: { label: 'Gasto', color: colors.warning, icon: 'arrow-down-circle' },
+  abono_deuda: { label: 'Abono', color: colors.purple, icon: 'return-down-back' },
+});
 
 export default function AccountDetailScreen() {
   const navigation = useNavigation<AppNavigation>();
@@ -43,6 +43,7 @@ export default function AccountDetailScreen() {
   const { token } = useAuth();
   const { colors } = usePreferences();
   const styles = getStyles(colors);
+  const txLabels = getTxLabels(colors);
 
   const [account, setAccount] = useState<Account | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -191,15 +192,15 @@ export default function AccountDetailScreen() {
 
         {/* ── Resumen rápido ── */}
         <View style={styles.statsRow}>
-          <View style={[styles.statCard, { borderLeftColor: '#059669' }]}>
+          <View style={[styles.statCard, { borderLeftColor: colors.success }]}>
             <Text style={styles.statLabel}>Ingresos</Text>
-            <Text style={[styles.statValue, { color: '#059669' }]}>
+            <Text style={[styles.statValue, { color: colors.success }]}>
               $ {totalIncome.toLocaleString('es-CO')}
             </Text>
           </View>
-          <View style={[styles.statCard, { borderLeftColor: '#B45309' }]}>
+          <View style={[styles.statCard, { borderLeftColor: colors.warning }]}>
             <Text style={styles.statLabel}>Salidas</Text>
-            <Text style={[styles.statValue, { color: '#B45309' }]}>
+            <Text style={[styles.statValue, { color: colors.warning }]}>
               $ {totalExpense.toLocaleString('es-CO')}
             </Text>
           </View>
@@ -211,23 +212,23 @@ export default function AccountDetailScreen() {
             style={styles.quickBtn}
             onPress={() => navigation.navigate('AddRecord', { preselectedAccount: accountId, initialType: 'ingreso' })}
           >
-            <Ionicons name="arrow-up" size={20} color="#059669" />
-            <Text style={[styles.quickBtnText, { color: '#059669' }]}>Ingreso</Text>
+            <Ionicons name="arrow-up" size={20} color={colors.success} />
+            <Text style={[styles.quickBtnText, { color: colors.success }]}>Ingreso</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.quickBtn}
             onPress={() => navigation.navigate('AddRecord', { preselectedAccount: accountId, initialType: 'gasto' })}
           >
-            <Ionicons name="arrow-down" size={20} color="#B45309" />
-            <Text style={[styles.quickBtnText, { color: '#B45309' }]}>Gasto</Text>
+            <Ionicons name="arrow-down" size={20} color={colors.warning} />
+            <Text style={[styles.quickBtnText, { color: colors.warning }]}>Gasto</Text>
           </TouchableOpacity>
           {account.isLiability && (
             <TouchableOpacity
               style={styles.quickBtn}
               onPress={() => navigation.navigate('AddRecord', { preselectedAccount: accountId, initialType: 'abono_deuda' })}
             >
-              <Ionicons name="return-down-back" size={20} color="#7C3AED" />
-              <Text style={[styles.quickBtnText, { color: '#7C3AED' }]}>Abonar</Text>
+              <Ionicons name="return-down-back" size={20} color={colors.purple} />
+              <Text style={[styles.quickBtnText, { color: colors.purple }]}>Abonar</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -238,7 +239,7 @@ export default function AccountDetailScreen() {
           <Text style={styles.emptyText}>No hay movimientos para esta cuenta</Text>
         ) : (
           transactions.slice(0, 30).map((tx) => {
-            const meta = TX_LABELS[tx.type] || TX_LABELS.egreso;
+            const meta = txLabels[tx.type] || txLabels.egreso;
             return (
               <View key={tx._id} style={styles.txRow}>
                 <View style={[styles.txIcon, { backgroundColor: `${meta.color}1A` }]}>
@@ -318,8 +319,8 @@ export default function AccountDetailScreen() {
                 <Switch
                   value={editIsLiability}
                   onValueChange={setEditIsLiability}
-                  trackColor={{ false: colors.border, true: '#C2410C' }}
-                  thumbColor="#FFFFFF"
+                  trackColor={{ false: colors.border, true: colors.danger }}
+                  thumbColor={colors.white}
                 />
               </View>
 

@@ -27,23 +27,23 @@ function TransactionItem({ tx, colors }: { tx: Transaction; colors: Colors }) {
   const isAbono = tx.type === 'abono_deuda';
   return (
     <View style={styles.txItem}>
-      <View style={[styles.txIcon, { backgroundColor: isAbono ? '#DCFCE7' : '#FEE2E2' }]}>
+      <View style={[styles.txIcon, { backgroundColor: isAbono ? colors.successLight : colors.dangerLight }]}>
         <Ionicons
           name={isAbono ? 'arrow-down-circle-outline' : 'arrow-up-circle-outline'}
           size={18}
-          color={isAbono ? '#16A34A' : '#DC2626'}
+          color={isAbono ? colors.success : colors.danger}
         />
       </View>
       <View style={styles.txInfo}>
         <Text style={styles.txTitle}>{tx.title}</Text>
         <Text style={styles.txDate}>{formatDate(tx.date)}</Text>
         {tx.account?.name && (
-          <Text style={[styles.txDate, { color: '#6B7280' }]}>
+          <Text style={[styles.txDate, { color: colors.textMuted }]}>
             Cuenta: {tx.account.name}
           </Text>
         )}
       </View>
-      <Text style={[styles.txAmount, { color: isAbono ? '#16A34A' : '#DC2626' }]}>
+      <Text style={[styles.txAmount, { color: isAbono ? colors.success : colors.danger }]}>
         {isAbono ? '- ' : '+ '}$ {Number(tx.amount).toLocaleString('es-CO')}
       </Text>
     </View>
@@ -263,7 +263,7 @@ export default function DebtDetailScreen() {
               <Ionicons name={(debtDetails?.icon || currentIcon) as any} size={36} color={debtDetails?.color || currentColor} />
             </View>
             <View style={styles.editIconBadge}>
-              <Ionicons name="pencil" size={12} color="#FFFFFF" />
+              <Ionicons name="pencil" size={12} color={colors.primaryText} />
             </View>
           </TouchableOpacity>
 
@@ -296,7 +296,7 @@ export default function DebtDetailScreen() {
 
           {debtDetails?.dueDate && (
             <View style={styles.dueDateBadge}>
-              <Ionicons name="calendar-outline" size={14} color="#F59E0B" />
+              <Ionicons name="calendar-outline" size={14} color={colors.warning} />
               <Text style={styles.dueDateText}>
                 Vence: {formatDate(debtDetails.dueDate)}
               </Text>
@@ -304,9 +304,9 @@ export default function DebtDetailScreen() {
           )}
 
           {debtDetails && !debtDetails.isActive && (
-            <View style={[styles.dueDateBadge, { backgroundColor: '#DCFCE7', marginTop: 8 }]}>
-              <Ionicons name="checkmark-circle" size={14} color="#16A34A" />
-              <Text style={[styles.dueDateText, { color: '#16A34A' }]}>Deuda Saldada ✅</Text>
+            <View style={[styles.dueDateBadge, { backgroundColor: colors.successLight, marginTop: 8 }]}>
+              <Ionicons name="checkmark-circle" size={14} color={colors.success} />
+              <Text style={[styles.dueDateText, { color: colors.success }]}>Deuda Saldada ✅</Text>
             </View>
           )}
         </View>
@@ -322,7 +322,7 @@ export default function DebtDetailScreen() {
             </View>
           ) : visibleTx.length === 0 ? (
             <View style={styles.txEmpty}>
-              <Ionicons name="document-text-outline" size={40} color="#D1D5DB" />
+              <Ionicons name="document-text-outline" size={40} color={colors.textMuted} />
               <Text style={styles.txEmptyText}>No hay movimientos aún</Text>
               <Text style={[styles.txEmptyText, { fontSize: 13, marginTop: 4 }]}>
                 Registra un abono para verlo aquí
@@ -341,7 +341,7 @@ export default function DebtDetailScreen() {
 
           {isLoadingMore && (
             <View style={styles.loaderContainer}>
-              <ActivityIndicator size="small" color="#059669" />
+              <ActivityIndicator size="small" color={colors.success} />
               <Text style={styles.loaderText}>Cargando más...</Text>
             </View>
           )}
@@ -355,7 +355,7 @@ export default function DebtDetailScreen() {
               <Text style={styles.loadMoreText}>
                 Ver más ({transactions.length - visibleCount} restantes)
               </Text>
-              <Ionicons name="chevron-down" size={16} color="#059669" style={{ marginLeft: 4 }} />
+              <Ionicons name="chevron-down" size={16} color={colors.success} style={{ marginLeft: 4 }} />
             </TouchableOpacity>
           )}
         </View>
@@ -370,10 +370,10 @@ export default function DebtDetailScreen() {
           onPress={() => setDecreaseModalVisible(true)}
           activeOpacity={0.7}
         >
-          <View style={[styles.barBtnIcon, { backgroundColor: '#DCFCE7' }]}>
-            <Ionicons name="arrow-down-circle-outline" size={22} color="#16A34A" />
+          <View style={[styles.barBtnIcon, { backgroundColor: colors.successLight }]}>
+            <Ionicons name="arrow-down-circle-outline" size={22} color={colors.success} />
           </View>
-          <Text style={[styles.barBtnLabel, { color: '#16A34A' }]}>Disminuir</Text>
+          <Text style={[styles.barBtnLabel, { color: colors.success }]}>Disminuir</Text>
         </TouchableOpacity>
 
         <View style={styles.barSeparator} />
@@ -383,10 +383,10 @@ export default function DebtDetailScreen() {
           onPress={() => setIncreaseModalVisible(true)}
           activeOpacity={0.7}
         >
-          <View style={[styles.barBtnIcon, { backgroundColor: '#FEE2E2' }]}>
-            <Ionicons name="arrow-up-circle-outline" size={22} color="#DC2626" />
+          <View style={[styles.barBtnIcon, { backgroundColor: colors.dangerLight }]}>
+            <Ionicons name="arrow-up-circle-outline" size={22} color={colors.danger} />
           </View>
-          <Text style={[styles.barBtnLabel, { color: '#DC2626' }]}>Aumentar</Text>
+          <Text style={[styles.barBtnLabel, { color: colors.danger }]}>Aumentar</Text>
         </TouchableOpacity>
 
         <View style={styles.barSeparator} />
@@ -402,10 +402,10 @@ export default function DebtDetailScreen() {
           }
           activeOpacity={0.7}
         >
-          <View style={[styles.barBtnIcon, { backgroundColor: '#F3F4F6' }]}>
-            <Ionicons name="pencil-outline" size={22} color="#374151" />
+          <View style={[styles.barBtnIcon, { backgroundColor: colors.iconBg }]}>
+            <Ionicons name="pencil-outline" size={22} color={colors.textSecondary} />
           </View>
-          <Text style={[styles.barBtnLabel, { color: '#374151' }]}>Modificar</Text>
+          <Text style={[styles.barBtnLabel, { color: colors.textSecondary }]}>Modificar</Text>
         </TouchableOpacity>
       </View>
 
@@ -416,7 +416,7 @@ export default function DebtDetailScreen() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Registrar Aumento</Text>
               <TouchableOpacity onPress={() => setIncreaseModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#4B5563" />
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -430,7 +430,7 @@ export default function DebtDetailScreen() {
                 style={styles.textInput}
                 keyboardType="numeric"
                 placeholder="Ej. 50000"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.textMuted}
                 value={increaseAmount}
                 onChangeText={setIncreaseAmount}
               />
@@ -441,18 +441,18 @@ export default function DebtDetailScreen() {
               <TextInput
                 style={styles.textInput}
                 placeholder="Ej. Intereses generados"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.textMuted}
                 value={increaseConcept}
                 onChangeText={setIncreaseConcept}
               />
             </View>
 
             <TouchableOpacity
-              style={[styles.saveButton, { backgroundColor: '#DC2626' }]}
+              style={[styles.saveButton, { backgroundColor: colors.danger }]}
               onPress={handleConfirmIncrease}
               disabled={isSubmitting}
             >
-              {isSubmitting ? <ActivityIndicator color="#FFF" /> : <Text style={styles.saveButtonText}>Registrar Aumento</Text>}
+              {isSubmitting ? <ActivityIndicator color={colors.primaryText} /> : <Text style={styles.saveButtonText}>Registrar Aumento</Text>}
             </TouchableOpacity>
           </KeyboardAvoidingView>
         </View>
@@ -465,7 +465,7 @@ export default function DebtDetailScreen() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Personalizar Ícono</Text>
               <TouchableOpacity onPress={() => setIconModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#4B5563" />
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -477,7 +477,7 @@ export default function DebtDetailScreen() {
                   style={[styles.iconChoice, currentIcon === ico && { borderColor: currentColor, borderWidth: 2 }]}
                   onPress={() => setCurrentIcon(ico)}
                 >
-                  <Ionicons name={ico as any} size={28} color={currentIcon === ico ? currentColor : '#9CA3AF'} />
+                  <Ionicons name={ico as any} size={28} color={currentIcon === ico ? currentColor : colors.textMuted} />
                 </TouchableOpacity>
               ))}
             </View>
@@ -509,7 +509,7 @@ export default function DebtDetailScreen() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Abonar a Deuda</Text>
               <TouchableOpacity onPress={() => setDecreaseModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#4B5563" />
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -523,7 +523,7 @@ export default function DebtDetailScreen() {
                 style={styles.textInput}
                 keyboardType="numeric"
                 placeholder="Ej. 100000"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.textMuted}
                 value={amountInput}
                 onChangeText={setAmountInput}
               />
@@ -537,34 +537,34 @@ export default function DebtDetailScreen() {
                     key={acc._id}
                     style={{
                       padding: 12,
-                      backgroundColor: selectedAccount === acc._id ? (acc.color || '#059669') : '#F3F4F6',
+                      backgroundColor: selectedAccount === acc._id ? (acc.color || colors.success) : colors.iconBg,
                       borderRadius: 12,
                       marginRight: 10,
                       borderWidth: selectedAccount === acc._id ? 2 : 0,
-                      borderColor: '#111827'
+                      borderColor: colors.textPrimary,
                     }}
                     onPress={() => setSelectedAccount(acc._id)}
                   >
-                    <Text style={{ color: selectedAccount === acc._id ? '#FFFFFF' : '#4B5563', fontWeight: 'bold' }}>
+                    <Text style={{ color: selectedAccount === acc._id ? '#FFFFFF' : colors.textPrimary, fontWeight: 'bold' }}>
                       {acc.name}
                     </Text>
-                    <Text style={{ color: selectedAccount === acc._id ? '#F0FFF4' : '#9CA3AF', fontSize: 12 }}>
+                    <Text style={{ color: selectedAccount === acc._id ? 'rgba(255,255,255,0.85)' : colors.textMuted, fontSize: 12 }}>
                       $ {acc.balance?.toLocaleString('es-CO')}
                     </Text>
                   </TouchableOpacity>
                 ))}
                 {accounts.length === 0 && (
-                  <Text style={{ color: '#9CA3AF', fontSize: 14 }}>No tienes cuentas</Text>
+                  <Text style={{ color: colors.textMuted, fontSize: 14 }}>No tienes cuentas</Text>
                 )}
               </ScrollView>
             </View>
 
             <TouchableOpacity
-              style={[styles.saveButton, { backgroundColor: '#059669' }]}
+              style={[styles.saveButton, { backgroundColor: colors.success }]}
               onPress={handlePayment}
               disabled={isSubmitting}
             >
-              {isSubmitting ? <ActivityIndicator color="#FFF" /> : <Text style={styles.saveButtonText}>Confirmar Abono</Text>}
+              {isSubmitting ? <ActivityIndicator color={colors.primaryText} /> : <Text style={styles.saveButtonText}>Confirmar Abono</Text>}
             </TouchableOpacity>
           </KeyboardAvoidingView>
         </View>
@@ -657,7 +657,7 @@ const getStyles = (colors: Colors) => StyleSheet.create({
   },
   divider: {
     height: 1,
-    backgroundColor: colors.iconBg || '#F3F4F6',
+    backgroundColor: colors.iconBg,
     width: '100%',
     marginBottom: 20,
   },
@@ -682,7 +682,7 @@ const getStyles = (colors: Colors) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#FEF3C7',
+    backgroundColor: colors.warningLight,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
@@ -690,7 +690,7 @@ const getStyles = (colors: Colors) => StyleSheet.create({
   },
   dueDateText: {
     fontSize: 13,
-    color: '#D97706',
+    color: colors.warning,
     fontWeight: '600',
   },
 
@@ -727,15 +727,15 @@ const getStyles = (colors: Colors) => StyleSheet.create({
   },
   txInfo: { flex: 1 },
   txTitle: { fontSize: 14, fontWeight: '600', color: colors.textPrimary },
-  txDate: { fontSize: 12, color: colors.textMuted || '#9CA3AF', marginTop: 2 },
+  txDate: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
   txAmount: { fontSize: 14, fontWeight: 'bold' },
-  txDivider: { height: 1, backgroundColor: colors.border || '#F3F4F6', marginLeft: 50 },
+  txDivider: { height: 1, backgroundColor: colors.border, marginLeft: 50 },
   txEmpty: {
     alignItems: 'center',
     paddingVertical: 30,
     gap: 10,
   },
-  txEmptyText: { fontSize: 15, color: colors.textMuted || '#9CA3AF', textAlign: 'center' },
+  txEmptyText: { fontSize: 15, color: colors.textMuted, textAlign: 'center' },
   loaderContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -751,14 +751,14 @@ const getStyles = (colors: Colors) => StyleSheet.create({
     marginTop: 14,
     paddingVertical: 12,
     borderRadius: 14,
-    backgroundColor: '#ECFDF5',
+    backgroundColor: colors.successLight,
     borderWidth: 1,
-    borderColor: '#A7F3D0',
+    borderColor: colors.success,
   },
   loadMoreText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#059669',
+    color: colors.success,
   },
 
   // Bottom bar
@@ -775,7 +775,7 @@ const getStyles = (colors: Colors) => StyleSheet.create({
     paddingBottom: Platform.OS === 'ios' ? 30 : 16,
     paddingHorizontal: 10,
     borderTopWidth: 1,
-    borderTopColor: colors.iconBg || '#F3F4F6',
+    borderTopColor: colors.iconBg,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -6 },
     shadowOpacity: 0.07,
@@ -802,7 +802,7 @@ const getStyles = (colors: Colors) => StyleSheet.create({
   barSeparator: {
     width: 1,
     height: 40,
-    backgroundColor: colors.iconBg || '#F3F4F6',
+    backgroundColor: colors.iconBg,
   },
 
   // Modal
@@ -829,7 +829,7 @@ const getStyles = (colors: Colors) => StyleSheet.create({
   inputGroup: { marginBottom: 18 },
   inputLabel: { fontSize: 14, fontWeight: '500', color: colors.textSecondary, marginBottom: 8 },
   textInput: {
-    backgroundColor: colors.background || '#F9FAFB',
+    backgroundColor: colors.background,
     borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -852,7 +852,7 @@ const getStyles = (colors: Colors) => StyleSheet.create({
     elevation: 5,
   },
   saveButtonText: {
-    color: '#FFFFFF',
+    color: colors.primaryText,
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -869,7 +869,7 @@ const getStyles = (colors: Colors) => StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 16,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: colors.iconBg,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
