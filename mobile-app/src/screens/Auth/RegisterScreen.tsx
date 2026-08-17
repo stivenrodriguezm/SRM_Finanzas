@@ -34,8 +34,8 @@ export default function RegisterScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
           
-          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-            <Ionicons name="chevron-back" size={24} color="#111827" />
+          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
+            <Ionicons name="chevron-back" size={22} color="#111827" style={{ marginLeft: -1 }} />
           </TouchableOpacity>
 
           <View style={styles.header}>
@@ -121,7 +121,7 @@ export default function RegisterScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#FFFFFF' },
   container: { flexGrow: 1, paddingHorizontal: 24, paddingVertical: 20 },
-  backBtn: { width: 40, height: 40, justifyContent: 'center', marginBottom: 20 },
+  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
   header: { marginBottom: 32 },
   title: { fontSize: 32, fontWeight: 'bold', color: '#111827', marginBottom: 8 },
   subtitle: { fontSize: 16, color: '#6B7280' },

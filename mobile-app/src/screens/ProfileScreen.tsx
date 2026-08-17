@@ -350,7 +350,7 @@ const getStyles = (colors: Colors) => StyleSheet.create({
   container: { padding: 20, paddingBottom: 40 },
 
   profileCard: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.headerCard,
     borderRadius: 24,
     padding: 28,
     alignItems: 'center',
@@ -370,11 +370,11 @@ const getStyles = (colors: Colors) => StyleSheet.create({
     alignItems: 'center',
     marginBottom: 14,
     borderWidth: 3,
-    borderColor: `${colors.primaryText}33`,
+    borderColor: `${colors.headerCardText}33`,
   },
-  avatarText: { fontSize: 30, fontWeight: 'bold', color: colors.primaryText },
-  userName: { fontSize: 22, fontWeight: 'bold', color: colors.primaryText, marginBottom: 4 },
-  userEmail: { fontSize: 14, color: `${colors.primaryText}CC` },
+  avatarText: { fontSize: 30, fontWeight: 'bold', color: colors.headerCardText },
+  userName: { fontSize: 22, fontWeight: 'bold', color: colors.headerCardText, marginBottom: 4 },
+  userEmail: { fontSize: 14, color: colors.headerCardTextMuted },
 
   sectionLabel: {
     fontSize: 12,

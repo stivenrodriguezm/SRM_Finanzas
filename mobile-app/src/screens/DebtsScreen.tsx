@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import DraggableFlatList, { ScaleDecorator } from 'react-native-draggable-flatlist';
 import { usePreferences } from '../context/PreferencesContext';
 import { useAuth } from '../context/AuthContext';
 import SkeletonLoader from '../components/SkeletonLoader';
 import AccountFormModal from '../components/AccountFormModal';
 import apiClient from '../services/apiClient';
+import { applySavedOrder, mergeOrderAfterDrag } from '../utils/orderPreference';
 import { Account, AuthResponse } from '../types/models';
 import { AppNavigation } from '../navigation/types';
 import { DEBT_ACCENT } from '../theme/theme';
@@ -74,13 +77,31 @@ export default function DebtsScreen() {
     }
   };
 
-  const relevantDebts = debtAccounts.filter((a) => selectedAccounts.includes(a._id));
+  const orderedDebtAccounts = applySavedOrder(debtAccounts, user?.preferences?.debtOrder || []);
+  const relevantDebts = orderedDebtAccounts.filter((a) => selectedAccounts.includes(a._id));
   const totalDebt = relevantDebts.reduce((acc, curr) => acc + (curr.balance || 0), 0);
   const maskValue = (val: string) => (isPrivate ? '****' : val);
 
+  const handleDragEnd = async ({ data }: { data: Account[] }) => {
+    const mergedOrder = mergeOrderAfterDrag(data.map((a) => a._id), user?.preferences?.debtOrder || []);
+
+    if (isSelectionMode) {
+      setDebtAccounts(data);
+    } else {
+      setDebtAccounts(applySavedOrder(debtAccounts, mergedOrder));
+    }
+
+    try {
+      const { data: prefsData } = await apiClient.put<AuthResponse>('/auth/preferences', { debtOrder: mergedOrder });
+      updateUserLocal(prefsData);
+    } catch (error) {
+      console.log('Error saving debt order', error);
+    }
+  };
+
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaView style={styles.safeArea}>
 
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Gestión de Deudas</Text>
@@ -95,40 +116,54 @@ export default function DebtsScreen() {
         </View>
 
         {isLoading ? (
-          <SkeletonLoader type="list" />
+          <View style={styles.container}>
+            <SkeletonLoader type="list" />
+          </View>
         ) : (
-          <>
-            {/* Resumen Total */}
-            <View style={styles.summaryCard}>
-              <View style={styles.summaryIconContainer}>
-                <Ionicons name="wallet-outline" size={24} color={DEBT_ACCENT} />
-              </View>
-              <View style={styles.summaryInfo}>
-                <Text style={styles.summaryLabel}>Total Adeudado</Text>
-                <Text style={[styles.summaryAmount, { color: DEBT_ACCENT }]}>
-                  {maskValue(`$ ${totalDebt.toLocaleString('es-CO')}`)}
-                </Text>
-              </View>
-            </View>
+          <DraggableFlatList
+            data={isSelectionMode ? orderedDebtAccounts : relevantDebts}
+            onDragEnd={handleDragEnd}
+            keyExtractor={(item) => item._id}
+            contentContainerStyle={styles.container}
+            showsVerticalScrollIndicator={false}
+            ListHeaderComponent={
+              <>
+                {/* Resumen Total */}
+                <View style={styles.summaryCard}>
+                  <View style={styles.summaryIconContainer}>
+                    <Ionicons name="wallet-outline" size={24} color={DEBT_ACCENT} />
+                  </View>
+                  <View style={styles.summaryInfo}>
+                    <Text style={styles.summaryLabel}>Total Adeudado</Text>
+                    <Text style={[styles.summaryAmount, { color: DEBT_ACCENT }]}>
+                      {maskValue(`$ ${totalDebt.toLocaleString('es-CO')}`)}
+                    </Text>
+                  </View>
+                </View>
 
-            <Text style={styles.sectionTitle}>Mis Cuentas de Deuda</Text>
+                <Text style={styles.sectionTitle}>Mis Cuentas de Deuda</Text>
+              </>
+            }
+            ListEmptyComponent={
+              debtAccounts.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <Ionicons name="checkmark-circle-outline" size={48} color={colors.textMuted} />
+                  <Text style={styles.emptyText}>No tienes cuentas de deuda activas</Text>
+                  <Text style={styles.emptySubText}>Crea una cuenta y márcala como "cuenta de deuda" en Inicio</Text>
+                </View>
+              ) : null
+            }
+            renderItem={({ item: account, drag, isActive }) => {
+              const isSelected = selectedAccounts.includes(account._id);
+              const isHidden = isSelectionMode && !isSelected;
 
-            {debtAccounts.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Ionicons name="checkmark-circle-outline" size={48} color={colors.textMuted} />
-                <Text style={styles.emptyText}>No tienes cuentas de deuda activas</Text>
-                <Text style={styles.emptySubText}>Crea una cuenta y márcala como "cuenta de deuda" en Inicio</Text>
-              </View>
-            ) : (
-              (isSelectionMode ? debtAccounts : relevantDebts).map((account) => {
-                const isSelected = selectedAccounts.includes(account._id);
-                const isHidden = isSelectionMode && !isSelected;
-
-                return (
+              return (
+                <ScaleDecorator>
                   <TouchableOpacity
-                    key={account._id}
-                    style={[styles.debtCard, { opacity: isHidden ? 0.5 : 1 }]}
+                    style={[styles.debtCard, { opacity: isHidden ? 0.5 : 1 }, isActive && styles.debtCardDragging]}
                     activeOpacity={0.8}
+                    disabled={isActive}
+                    onLongPress={drag}
                     onPress={() => {
                       if (isSelectionMode) toggleAccountSelection(account._id);
                       else navigation.navigate('AccountDetail', { accountId: account._id });
@@ -153,7 +188,7 @@ export default function DebtsScreen() {
                           {maskValue(`$ ${(account.balance || 0).toLocaleString('es-CO')}`)}
                         </Text>
                       </View>
-                      
+
                       {isSelectionMode ? (
                         <Ionicons name={isSelected ? "eye-outline" : "eye-off-outline"} size={22} color={isSelected ? colors.primary : colors.textMuted} />
                       ) : (
@@ -161,34 +196,33 @@ export default function DebtsScreen() {
                       )}
                     </View>
                   </TouchableOpacity>
-                );
-              })
-            )}
-          </>
+                </ScaleDecorator>
+              );
+            }}
+            ListFooterComponent={<View style={{ height: 80 }} />}
+          />
         )}
 
-        <View style={{ height: 80 }} />
-      </ScrollView>
+        {/* Botón Flotante – abre el modal de nueva cuenta aquí mismo, con "cuenta de deuda" preseleccionado */}
+        <View style={styles.floatingButtonContainer}>
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => setAddAccountModalVisible(true)}
+          >
+            <Ionicons name="add" size={24} color={colors.primaryText} />
+            <Text style={styles.addButtonText}>Agregar Cuenta de Deuda</Text>
+          </TouchableOpacity>
+        </View>
 
-      {/* Botón Flotante – abre el modal de nueva cuenta aquí mismo, con "cuenta de deuda" preseleccionado */}
-      <View style={styles.floatingButtonContainer}>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => setAddAccountModalVisible(true)}
-        >
-          <Ionicons name="add" size={24} color={colors.primaryText} />
-          <Text style={styles.addButtonText}>Agregar Cuenta de Deuda</Text>
-        </TouchableOpacity>
-      </View>
-
-      <AccountFormModal
-        visible={isAddAccountModalVisible}
-        mode="add"
-        initialLiability
-        onClose={() => setAddAccountModalVisible(false)}
-        onSaved={fetchDebtAccounts}
-      />
-    </SafeAreaView>
+        <AccountFormModal
+          visible={isAddAccountModalVisible}
+          mode="add"
+          initialLiability
+          onClose={() => setAddAccountModalVisible(false)}
+          onSaved={fetchDebtAccounts}
+        />
+      </SafeAreaView>
+    </GestureHandlerRootView>
   );
 }
 
@@ -243,6 +277,11 @@ const getStyles = (colors: Colors) => StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 3,
+  },
+  debtCardDragging: {
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 8,
   },
   debtCardContent: {
     flexDirection: 'row',

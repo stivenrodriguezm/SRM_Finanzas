@@ -1,12 +1,16 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, Dimensions, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { BarChart, PieChart } from 'react-native-chart-kit';
-import { useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { usePreferences } from '../context/PreferencesContext';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../services/apiClient';
+import { createAiChat } from '../services/aiChat';
+import { getErrorMessage } from '../utils/apiError';
 import { Transaction, Debt, Account } from '../types/models';
 import SkeletonLoader from '../components/SkeletonLoader';
+import { AppNavigation } from '../navigation/types';
 
 type Colors = ReturnType<typeof usePreferences>['colors'];
 
@@ -25,14 +29,16 @@ const lastMonths = (count: number) => {
 };
 
 export default function ChartsScreen() {
-  const { colors, isDark } = usePreferences();
+  const { colors } = usePreferences();
   const styles = getStyles(colors);
   const { token } = useAuth();
+  const navigation = useNavigation<AppNavigation>();
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [debts, setDebts] = useState<Debt[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isStartingChat, setIsStartingChat] = useState(false);
 
   const fetchData = useCallback(async () => {
     if (!token) return;
@@ -58,6 +64,18 @@ export default function ChartsScreen() {
       fetchData();
     }, [fetchData])
   );
+
+  const handleStartAiChat = async () => {
+    setIsStartingChat(true);
+    try {
+      const chat = await createAiChat();
+      navigation.navigate('AiChat', { chatId: chat._id });
+    } catch (error) {
+      Alert.alert('Error', getErrorMessage(error, 'No se pudo iniciar el análisis con IA.'));
+    } finally {
+      setIsStartingChat(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -115,6 +133,27 @@ export default function ChartsScreen() {
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <Text style={styles.headerTitle}>Análisis</Text>
+
+        {/* ── Entrada al análisis con IA (chat) ── */}
+        <TouchableOpacity style={styles.aiCard} activeOpacity={0.85} onPress={handleStartAiChat} disabled={isStartingChat}>
+          <View style={styles.aiCardIcon}>
+            {isStartingChat ? <ActivityIndicator color={colors.primary} /> : <Ionicons name="sparkles" size={22} color={colors.primary} />}
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.aiCardTitle}>Analizar con IA</Text>
+            <Text style={styles.aiCardSubtitle}>Chateá con Gemini sobre tus finanzas, con contexto real</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.historyLink}
+          onPress={() => navigation.navigate('AiChatHistory')}
+          disabled={isStartingChat}
+        >
+          <Ionicons name="time-outline" size={15} color={colors.textSecondary} />
+          <Text style={styles.historyLinkText}>Ver conversaciones anteriores</Text>
+        </TouchableOpacity>
 
         <View style={styles.statsRow}>
           <View style={[styles.statCard, { borderLeftColor: colors.success }]}>
@@ -181,6 +220,41 @@ const getStyles = (colors: Colors) => StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
   container: { padding: 20, paddingBottom: 40 },
   headerTitle: { fontSize: 28, fontWeight: 'bold', color: colors.textPrimary, marginBottom: 20, marginTop: 10 },
+  aiCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  aiCardIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: colors.infoLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  aiCardTitle: { fontSize: 16, fontWeight: 'bold', color: colors.textPrimary, marginBottom: 2 },
+  aiCardSubtitle: { fontSize: 12, color: colors.textSecondary },
+  historyLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    gap: 6,
+    marginBottom: 20,
+    paddingVertical: 4,
+  },
+  historyLinkText: { fontSize: 13, color: colors.textSecondary, fontWeight: '500' },
   statsRow: { flexDirection: 'row', gap: 12, marginBottom: 20 },
   statCard: {
     flex: 1,

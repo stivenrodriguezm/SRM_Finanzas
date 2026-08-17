@@ -28,6 +28,8 @@ export const updatePreferencesSchema = z.object({
   hideAmounts: z.boolean().optional(),
   accountOrder: z.array(z.string()).optional(),
   selectedAccounts: z.array(z.string()).optional(),
+  reminderOrder: z.array(z.string()).optional(),
+  debtOrder: z.array(z.string()).optional(),
 });
 
 export const forgotPasswordSchema = z.object({

@@ -1,3 +1,8 @@
+// Acento de "deudas" (cuentas de pasivo): mismo tono en claro/oscuro y en todos los lugares
+// donde aparece (Total Adeudado, color por defecto de una cuenta de deuda nueva, paleta de
+// personalización) para que no queden rojos distintos representando lo mismo.
+export const DEBT_ACCENT = '#C2410C'; // naranja-óxido
+
 export const lightColors = {
   background: '#F5F7FA',      // Gris muy claro
   card: '#FFFFFF',            // Blanco
@@ -26,6 +31,9 @@ export const lightColors = {
   orangeLight: '#FFF7ED',
   white: '#FFFFFF',
   transparentBg: 'rgba(255,255,255,0.08)',
+  headerCard: '#1E293B',
+  headerCardText: '#FFFFFF',
+  headerCardTextMuted: 'rgba(255,255,255,0.75)',
 };
 
 export const darkColors = {
@@ -56,4 +64,7 @@ export const darkColors = {
   orangeLight: 'rgba(251,146,60,0.16)',
   white: '#FFFFFF',
   transparentBg: 'rgba(255,255,255,0.08)',
+  headerCard: '#1E202A',      // Oscuro elegante en modo nocturno
+  headerCardText: '#FFFFFF',
+  headerCardTextMuted: 'rgba(255,255,255,0.75)',
 };

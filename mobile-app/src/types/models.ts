@@ -88,6 +88,8 @@ export interface UserPreferences {
   hideAmounts: boolean;
   accountOrder: string[];
   selectedAccounts: string[];
+  reminderOrder: string[];
+  debtOrder: string[];
 }
 
 export interface AuthUser {
@@ -100,4 +102,34 @@ export interface AuthUser {
 
 export interface AuthResponse extends AuthUser {
   token: string;
+}
+
+export type AiChartType = 'bar' | 'pie' | 'line';
+
+export interface AiChart {
+  type: AiChartType;
+  title: string;
+  description?: string;
+  labels: string[];
+  values: number[];
+}
+
+export type AiChatRole = 'user' | 'model';
+
+export interface AiChatMessage {
+  role: AiChatRole;
+  text: string;
+  charts?: AiChart[];
+  createdAt: string;
+}
+
+export interface AiChatSummary {
+  _id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AiChat extends AiChatSummary {
+  messages: AiChatMessage[];
 }

@@ -14,6 +14,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import DraggableFlatList, { ScaleDecorator, RenderItemParams } from 'react-native-draggable-flatlist';
 import apiClient from '../services/apiClient';
 import { syncReminderNotifications } from '../services/notifications';
+import { applySavedOrder, mergeOrderAfterDrag } from '../utils/orderPreference';
 import { Account, Debt, Reminder, AuthResponse } from '../types/models';
 import { AppNavigation } from '../navigation/types';
 
@@ -52,16 +53,8 @@ export default function HomeScreen() {
         apiClient.get<Reminder[]>('/reminders'),
       ]);
 
-      // Sort accounts based on user.preferences.accountOrder
-      const fetchedAccounts = accRes.data;
-      if (user?.preferences?.accountOrder && user.preferences.accountOrder.length > 0) {
-        const orderMap = new Map(user.preferences.accountOrder.map((id, index) => [id, index]));
-        fetchedAccounts.sort((a, b) => {
-          const aIndex = orderMap.has(a._id) ? (orderMap.get(a._id) as number) : 999;
-          const bIndex = orderMap.has(b._id) ? (orderMap.get(b._id) as number) : 999;
-          return aIndex - bIndex;
-        });
-      }
+      // Ordenar cuentas según user.preferences.accountOrder (reordenable manteniendo presionado)
+      const fetchedAccounts = applySavedOrder(accRes.data, user?.preferences?.accountOrder || []);
       setAccounts(fetchedAccounts);
 
       // Inicializar selectedAccounts de las preferencias o seleccionar todas por defecto
@@ -128,22 +121,12 @@ export default function HomeScreen() {
   };
 
   const handleDragEnd = async ({ data }: { data: Account[] }) => {
-    const newOrderIds = data.map((a) => a._id);
-    const existingOrder = user?.preferences?.accountOrder || [];
-    // Preserve order of items not currently rendered (hidden items)
-    const missingIds = existingOrder.filter((id) => !newOrderIds.includes(id));
-    const mergedOrder = [...newOrderIds, ...missingIds];
+    const mergedOrder = mergeOrderAfterDrag(data.map((a) => a._id), user?.preferences?.accountOrder || []);
 
     if (isSelectionMode) {
       setAccounts(data);
     } else {
-      const orderMap = new Map(mergedOrder.map((id, index) => [id, index]));
-      const newAccounts = [...accounts].sort((a, b) => {
-        const aIndex = orderMap.has(a._id) ? (orderMap.get(a._id) as number) : 999;
-        const bIndex = orderMap.has(b._id) ? (orderMap.get(b._id) as number) : 999;
-        return aIndex - bIndex;
-      });
-      setAccounts(newAccounts);
+      setAccounts(applySavedOrder(accounts, mergedOrder));
     }
 
     try {
@@ -165,6 +148,15 @@ export default function HomeScreen() {
 
   const netWorth = calculateNetWorth();
   const allSelected = accounts.length > 0 && selectedAccounts.length === accounts.length;
+
+  // "Debo" combina las cuentas de deuda (tarjetas, hipotecas — el uso actual de "cuenta de
+  // deuda") con préstamos persona-a-persona tipo "debo" del modelo Debt (uso previo/legacy) —
+  // antes solo miraba lo segundo, así que a cualquiera que solo usara cuentas de deuda le
+  // aparecía "Ninguna activa" aunque sí tuviera deudas.
+  const deboItems = [
+    ...accounts.filter((a) => a.isLiability).map((a) => ({ id: a._id, name: a.name, amount: a.balance })),
+    ...debts.filter((d) => d.type === 'debo').map((d) => ({ id: d._id, name: d.name, amount: d.remainingAmount })),
+  ];
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -211,7 +203,7 @@ export default function HomeScreen() {
                   <Ionicons
                     name={isPrivate ? 'eye-off-outline' : 'eye-outline'}
                     size={22}
-                    color="rgba(255,255,255,0.75)"
+                    color={colors.headerCardTextMuted}
                   />
                 </TouchableOpacity>
                 {/* Tarea 3: Botón de Perfil */}
@@ -223,7 +215,7 @@ export default function HomeScreen() {
                   <Ionicons
                     name="person-circle-outline"
                     size={26}
-                    color="rgba(255,255,255,0.75)"
+                    color={colors.headerCardTextMuted}
                   />
                 </TouchableOpacity>
               </View>
@@ -384,15 +376,15 @@ export default function HomeScreen() {
                   <Text style={styles.columnTitle}>Debo</Text>
                   <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
                 </View>
-                {debts.filter(d => d.type === 'debo').slice(0, 2).map((debt) => (
-                  <View key={debt._id} style={[styles.debtItem, { borderLeftColor: 'rgba(180,83,9,0.5)' }]}>
-                    <Text style={styles.debtItemName} numberOfLines={1}>{debt.name}</Text>
+                {deboItems.slice(0, 2).map((item) => (
+                  <View key={item.id} style={[styles.debtItem, { borderLeftColor: 'rgba(180,83,9,0.5)' }]}>
+                    <Text style={styles.debtItemName} numberOfLines={1}>{item.name}</Text>
                     <Text style={[styles.debtItemAmount, { color: colors.warning }]}>
-                      {maskValue(`- $ ${debt.remainingAmount.toLocaleString('es-CO')}`)}
+                      {maskValue(`- $ ${item.amount.toLocaleString('es-CO')}`)}
                     </Text>
                   </View>
                 ))}
-                {debts.filter(d => d.type === 'debo').length === 0 && (
+                {deboItems.length === 0 && (
                   <Text style={{color: colors.textMuted, fontSize: 13, marginTop: 4}}>Ninguna activa</Text>
                 )}
               </TouchableOpacity>
@@ -470,7 +462,7 @@ const getStyles = (colors: Colors) => StyleSheet.create({
   header: {
     marginBottom: 24,
     marginTop: Platform.OS === 'android' ? 12 : 4,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.headerCard,
     padding: 24,
     borderRadius: 20,
     shadowColor: '#000',
@@ -503,18 +495,18 @@ const getStyles = (colors: Colors) => StyleSheet.create({
   },
   greeting: {
     fontSize: 16,
-    color: colors.primaryText,
+    color: colors.headerCardText,
     marginBottom: 4,
   },
   netWorthLabel: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.75)',
+    color: colors.headerCardTextMuted,
     fontWeight: '500',
   },
   netWorthAmount: {
     fontSize: 34,
     fontWeight: 'bold',
-    color: colors.card,
+    color: colors.headerCardText,
     marginTop: 4,
     letterSpacing: -0.5,
   },

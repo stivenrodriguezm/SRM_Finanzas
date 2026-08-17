@@ -17,5 +17,7 @@ export const clearTestDB = async (): Promise<void> => {
 
 export const closeTestDB = async (): Promise<void> => {
   await mongoose.connection.close();
-  await replSet.stop();
+  if (replSet) {
+    await replSet.stop();
+  }
 };

@@ -90,7 +90,7 @@ export const changePassword = catchAsync(async (req: Request, res: Response) => 
 });
 
 export const updatePreferences = catchAsync(async (req: Request, res: Response) => {
-  const { theme, hideAmounts, accountOrder, selectedAccounts } = req.body;
+  const { theme, hideAmounts, accountOrder, selectedAccounts, reminderOrder, debtOrder } = req.body;
   const user = await User.findById(req.user!.id);
   if (!user) throw new AppError('Usuario no encontrado', 404);
 
@@ -98,6 +98,8 @@ export const updatePreferences = catchAsync(async (req: Request, res: Response) 
   if (hideAmounts !== undefined) user.preferences.hideAmounts = hideAmounts;
   if (accountOrder !== undefined) user.preferences.accountOrder = accountOrder;
   if (selectedAccounts !== undefined) user.preferences.selectedAccounts = selectedAccounts;
+  if (reminderOrder !== undefined) user.preferences.reminderOrder = reminderOrder;
+  if (debtOrder !== undefined) user.preferences.debtOrder = debtOrder;
 
   const updatedUser = await user.save();
   res.json(publicUser(updatedUser));

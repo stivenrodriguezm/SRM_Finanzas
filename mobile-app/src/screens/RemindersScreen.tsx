@@ -1,20 +1,23 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import DraggableFlatList, { ScaleDecorator } from 'react-native-draggable-flatlist';
 import { usePreferences } from '../context/PreferencesContext';
 import { useAuth } from '../context/AuthContext';
 import SkeletonLoader from '../components/SkeletonLoader';
 import apiClient from '../services/apiClient';
 import { syncReminderNotifications } from '../services/notifications';
-import { Reminder } from '../types/models';
+import { applySavedOrder, mergeOrderAfterDrag } from '../utils/orderPreference';
+import { Reminder, AuthResponse } from '../types/models';
 import { AppNavigation } from '../navigation/types';
 
 type Colors = ReturnType<typeof usePreferences>['colors'];
 
 export default function RemindersScreen() {
   const navigation = useNavigation<AppNavigation>();
-  const { token } = useAuth();
+  const { token, user, updateUserLocal } = useAuth();
   const { preferences, colors } = usePreferences();
   const styles = getStyles(colors);
   const [isPrivate, setIsPrivate] = useState(preferences.privacy.reminders);
@@ -45,37 +48,63 @@ export default function RemindersScreen() {
     }, [token])
   );
 
+  const orderedReminders = applySavedOrder(reminders, user?.preferences?.reminderOrder || []);
+
+  const handleDragEnd = async ({ data }: { data: Reminder[] }) => {
+    setReminders(data);
+    const mergedOrder = mergeOrderAfterDrag(data.map((r) => r._id), user?.preferences?.reminderOrder || []);
+    try {
+      const { data: prefsData } = await apiClient.put<AuthResponse>('/auth/preferences', { reminderOrder: mergedOrder });
+      updateUserLocal(prefsData);
+    } catch (error) {
+      console.log('Error saving reminder order', error);
+    }
+  };
+
   const maskValue = (val: string) => (isPrivate ? '****' : val);
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Pagos Pendientes</Text>
-        <TouchableOpacity style={styles.eyeButton} onPress={() => setIsPrivate(!isPrivate)}>
-          <Ionicons name={isPrivate ? 'eye-off-outline' : 'eye-outline'} size={24} color={colors.textMuted} />
-        </TouchableOpacity>
-      </View>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Pagos Pendientes</Text>
+          <TouchableOpacity style={styles.eyeButton} onPress={() => setIsPrivate(!isPrivate)}>
+            <Ionicons name={isPrivate ? 'eye-off-outline' : 'eye-outline'} size={24} color={colors.textMuted} />
+          </TouchableOpacity>
+        </View>
 
-      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         {isLoading ? (
-          <SkeletonLoader type="list" />
+          <View style={styles.container}>
+            <SkeletonLoader type="list" />
+          </View>
         ) : (
-          <>
-            {reminders.length === 0 ? (
+          <DraggableFlatList
+            data={orderedReminders}
+            onDragEnd={handleDragEnd}
+            keyExtractor={(item) => item._id}
+            contentContainerStyle={styles.container}
+            showsVerticalScrollIndicator={false}
+            ListEmptyComponent={
               <Text style={{ textAlign: 'center', color: colors.textMuted, marginTop: 20 }}>No tienes recordatorios</Text>
-            ) : (
-              reminders.map((reminder) => {
-                const diffTime = new Date(reminder.date).getTime() - new Date().getTime();
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                const isSnoozed = !!reminder.snoozedUntil && new Date(reminder.snoozedUntil).getTime() >= new Date().setHours(0, 0, 0, 0);
-                const isUrgent = !isSnoozed && diffDays <= 1;
+            }
+            renderItem={({ item: reminder, drag, isActive }) => {
+              const diffTime = new Date(reminder.date).getTime() - new Date().getTime();
+              const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+              const isSnoozed = !!reminder.snoozedUntil && new Date(reminder.snoozedUntil).getTime() >= new Date().setHours(0, 0, 0, 0);
+              const isUrgent = !isSnoozed && diffDays <= 1;
 
-                let dateText = `Vence en ${diffDays} días`;
-                if (diffDays === 0) dateText = 'Vence Hoy';
-                if (diffDays === 1) dateText = 'Vence Mañana';
-                if (diffDays < 0) dateText = `Vencido hace ${Math.abs(diffDays)} días`;
+              let dateText = `Vence en ${diffDays} días`;
+              if (diffDays === 0) dateText = 'Vence Hoy';
+              if (diffDays === 1) dateText = 'Vence Mañana';
+              if (diffDays < 0) dateText = `Vencido hace ${Math.abs(diffDays)} días`;
 
-                return (
-                  <View key={reminder._id} style={[styles.reminderCard, isUrgent && styles.reminderCardUrgent]}>
+              return (
+                <ScaleDecorator>
+                  <TouchableOpacity
+                    activeOpacity={1}
+                    onLongPress={drag}
+                    disabled={isActive}
+                    style={[styles.reminderCard, isUrgent && styles.reminderCardUrgent, isActive && styles.reminderCardDragging]}
+                  >
                     <View style={styles.cardTop}>
                       <View style={styles.cardHeaderInfo}>
                         <View style={[styles.iconContainer, { backgroundColor: isUrgent ? colors.dangerLight : colors.iconBg }]}>
@@ -94,34 +123,32 @@ export default function RemindersScreen() {
                       </View>
                       <Text style={styles.reminderAmount}>{maskValue(reminder.amount ? `$ ${reminder.amount.toLocaleString('es-CO')}` : 'Sin monto')}</Text>
                     </View>
-                    
-                    <TouchableOpacity 
-                      style={isUrgent ? styles.primaryButton : styles.secondaryButton} 
+
+                    <TouchableOpacity
+                      style={isUrgent ? styles.primaryButton : styles.secondaryButton}
+                      disabled={isActive}
                       onPress={() => navigation.navigate('ReminderDetail', { reminder, dateText, isUrgent })}
                     >
                       <Text style={isUrgent ? styles.primaryButtonText : styles.secondaryButtonText}>Ver más</Text>
                       <Ionicons name="arrow-forward" size={16} color={isUrgent ? colors.card : colors.textPrimary} style={{marginLeft: 8}} />
                     </TouchableOpacity>
-                  </View>
-                );
-              })
-            )}
-
-            {/* Espacio extra al final para que el botón flotante no tape contenido */}
-            <View style={{height: 80}} />
-          </>
+                  </TouchableOpacity>
+                </ScaleDecorator>
+              );
+            }}
+            ListFooterComponent={<View style={{ height: 80 }} />}
+          />
         )}
-      </ScrollView>
 
-      {/* Botón Flotante para añadir */}
-      <View style={styles.floatingButtonContainer}>
-        <TouchableOpacity style={styles.addButton} onPress={() => navigation.navigate('AddReminder')}>
-          <Ionicons name="add" size={24} color={colors.primaryText} />
-          <Text style={styles.addButtonText}>Añadir Recordatorio</Text>
-        </TouchableOpacity>
-      </View>
-
-    </SafeAreaView>
+        {/* Botón Flotante para añadir */}
+        <View style={styles.floatingButtonContainer}>
+          <TouchableOpacity style={styles.addButton} onPress={() => navigation.navigate('AddReminder')}>
+            <Ionicons name="add" size={24} color={colors.primaryText} />
+            <Text style={styles.addButtonText}>Añadir Recordatorio</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    </GestureHandlerRootView>
   );
 }
 
@@ -130,11 +157,11 @@ const getStyles = (colors: Colors) => StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  header: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    marginBottom: 20, 
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
     marginTop: 10,
     paddingHorizontal: 20
   },
@@ -160,6 +187,11 @@ const getStyles = (colors: Colors) => StyleSheet.create({
     borderColor: colors.danger,
     borderWidth: 1,
     backgroundColor: colors.dangerLight,
+  },
+  reminderCardDragging: {
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 8,
   },
   cardTop: {
     flexDirection: 'row',

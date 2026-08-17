@@ -11,10 +11,12 @@ import { useAuth } from '../context/AuthContext';
 import apiClient from '../services/apiClient';
 import { Account, Transaction, TransactionType } from '../types/models';
 import { RootStackParamList, AppNavigation } from '../navigation/types';
+import { DEBT_ACCENT } from '../theme/theme';
 
 type Colors = ReturnType<typeof usePreferences>['colors'];
 
-// Paleta de colores sobria para cuentas
+// Paleta de colores sobria para cuentas. El naranja-óxido es el mismo DEBT_ACCENT que usa
+// "Gestión de Deudas" (Total Adeudado y cuentas de deuda), para que sea el mismo rojo en todos lados.
 const COLOR_PALETTE = [
   { label: 'Slate',   hex: '#64748B' },
   { label: 'Zinc',    hex: '#71717A' },
@@ -25,7 +27,7 @@ const COLOR_PALETTE = [
   { label: 'Violet',  hex: '#7C3AED' },
   { label: 'Indigo',  hex: '#4F46E5' },
   { label: 'Amber',   hex: '#B45309' },
-  { label: 'Rose',    hex: '#BE123C' },
+  { label: 'Orange',  hex: DEBT_ACCENT },
 ];
 
 const ICONS = ['wallet', 'card', 'cash', 'home', 'car', 'school', 'briefcase', 'bag'];
@@ -139,13 +141,18 @@ export default function AccountDetailScreen() {
     if (!account) return;
     navigation.setOptions({
       headerRight: () => (
-        <TouchableOpacity onPress={handleDelete} style={{ paddingHorizontal: 12, paddingVertical: 4 }} hitSlop={8}>
-          <Ionicons name="trash-outline" size={22} color={colors.danger} />
+        <TouchableOpacity
+          onPress={handleDelete}
+          style={styles.headerDeleteBtn}
+          activeOpacity={0.7}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons name="trash-outline" size={20} color={colors.danger} />
         </TouchableOpacity>
       ),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [navigation, account]);
+  }, [navigation, account, colors.danger]);
 
   if (isLoading || !account) {
     return (
@@ -475,4 +482,11 @@ const getStyles = (colors: Colors) => StyleSheet.create({
     backgroundColor: 'transparent',
   },
   deleteBtnText: { color: colors.danger, fontSize: 15, fontWeight: '600' },
+  headerDeleteBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 });

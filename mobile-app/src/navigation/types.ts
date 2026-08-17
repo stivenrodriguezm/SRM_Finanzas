@@ -33,6 +33,8 @@ export type RootStackParamList = {
   Receivables: undefined;
   Preferences: undefined;
   AccountDetail: { accountId: string };
+  AiChatHistory: undefined;
+  AiChat: { chatId: string };
 };
 
 /** Tipo pragmático para useNavigation() en pantallas que pueden navegar a rutas de ambos navigators. */

@@ -26,6 +26,8 @@ import RegisterScreen from '../screens/Auth/RegisterScreen';
 import ForgotPasswordScreen from '../screens/Auth/ForgotPasswordScreen';
 import ResetPasswordScreen from '../screens/Auth/ResetPasswordScreen';
 import AccountDetailScreen from '../screens/AccountDetailScreen';
+import AiChatHistoryScreen from '../screens/AiChatHistoryScreen';
+import AiChatScreen from '../screens/AiChatScreen';
 
 const Tab = createBottomTabNavigator<TabParamList>();
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -102,8 +104,19 @@ export default function AppNavigator() {
   };
 
   const backButton = (onPress: () => void) => (
-    <TouchableOpacity onPress={onPress} style={{ paddingRight: 8 }} activeOpacity={0.7}>
-      <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
+    <TouchableOpacity
+      onPress={onPress}
+      style={{
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        justifyContent: 'center',
+        alignItems: 'center',
+      }}
+      activeOpacity={0.7}
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+    >
+      <Ionicons name="chevron-back" size={22} color={colors.textPrimary} style={{ marginLeft: -1 }} />
     </TouchableOpacity>
   );
 
@@ -197,6 +210,28 @@ export default function AppNavigator() {
         options={({ navigation: nav }) => ({
           headerShown: true,
           title: 'Detalle de Cuenta',
+          ...commonHeaderStyle,
+          headerLeft: () => backButton(() => nav.goBack()),
+        })}
+      />
+
+      <Stack.Screen
+        name="AiChatHistory"
+        component={AiChatHistoryScreen}
+        options={({ navigation: nav }) => ({
+          headerShown: true,
+          title: 'Análisis con IA',
+          ...commonHeaderStyle,
+          headerLeft: () => backButton(() => nav.goBack()),
+        })}
+      />
+
+      <Stack.Screen
+        name="AiChat"
+        component={AiChatScreen}
+        options={({ navigation: nav }) => ({
+          headerShown: true,
+          title: 'Análisis con IA',
           ...commonHeaderStyle,
           headerLeft: () => backButton(() => nav.goBack()),
         })}

@@ -16,6 +16,17 @@ import { RootStackParamList, AppNavigation } from '../navigation/types';
 type Colors = ReturnType<typeof usePreferences>['colors'];
 type RecordType = 'abono_deuda' | 'ingreso' | 'gasto';
 
+// "A qué se puede abonar": una cuenta de deuda (Account con isLiability) o un préstamo
+// persona-a-persona (modelo Debt) — dos fuentes de datos distintas, unificadas en un solo selector.
+interface DebtTargetOption {
+  kind: 'account' | 'debt';
+  id: string;
+  name: string;
+  remaining: number;
+  icon?: string;
+  color?: string;
+}
+
 const getTransactionTypes = (colors: Colors): { key: RecordType; label: string; icon: keyof typeof Ionicons.glyphMap; color: string; bg: string }[] => [
   {
     key: 'abono_deuda',
@@ -68,14 +79,26 @@ export default function AddRecordScreen() {
   // Selections
   const [selectedOriginAccount, setSelectedOriginAccount] = useState(preselectedAccount || '');
   const [selectedDestAccount, setSelectedDestAccount] = useState(preselectedAccount || '');
-  const [selectedDebt, setSelectedDebt] = useState(''); // ID de la deuda a abonar
+  const [selectedDebtTarget, setSelectedDebtTarget] = useState<DebtTargetOption | null>(null);
 
   // El botón "Abonar" de una cuenta de deuda navega aquí con preselectedAccount. En ese
   // caso no se abona a un préstamo del modelo Debt, sino directamente a esa cuenta.
   const preselectedLiabilityAccount = accounts.find((a) => a._id === preselectedAccount && a.isLiability);
   const isLiabilityPayment = recordType === 'abono_deuda' && !!preselectedLiabilityAccount;
+
+  // Todo a lo que se puede abonar: cuentas de deuda (isLiability) + préstamos persona-a-persona
+  // (modelo Debt) — antes el selector de "Abono a Deuda" genérico solo mostraba lo segundo.
+  const debtTargets: DebtTargetOption[] = [
+    ...accounts
+      .filter((a) => a.isLiability)
+      .map((a) => ({ kind: 'account' as const, id: a._id, name: a.name, remaining: a.balance, icon: a.icon, color: a.color })),
+    ...debts.map((d) => ({ kind: 'debt' as const, id: d._id, name: d.name, remaining: d.remainingAmount, icon: d.icon, color: d.color })),
+  ];
+
   const originAccountOptions = isLiabilityPayment
     ? accounts.filter((a) => a._id !== preselectedAccount)
+    : selectedDebtTarget?.kind === 'account'
+    ? accounts.filter((a) => a._id !== selectedDebtTarget.id)
     : accounts;
 
   React.useEffect(() => {
@@ -93,6 +116,15 @@ export default function AddRecordScreen() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLiabilityPayment]);
+
+  // Si el destino elegido es una cuenta de deuda y coincide con la cuenta origen actual, hay
+  // que limpiar el origen — el dinero no puede salir de la misma cuenta a la que entra.
+  React.useEffect(() => {
+    if (selectedDebtTarget?.kind === 'account' && selectedOriginAccount === selectedDebtTarget.id) {
+      setSelectedOriginAccount('');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDebtTarget]);
 
   const fetchAccounts = async () => {
     if (!token) return;
@@ -133,7 +165,7 @@ export default function AddRecordScreen() {
       return;
     }
 
-    if (recordType === 'abono_deuda' && !isLiabilityPayment && !selectedDebt) {
+    if (recordType === 'abono_deuda' && !isLiabilityPayment && !selectedDebtTarget) {
       Alert.alert('Error', 'Por favor selecciona la deuda a abonar.');
       return;
     }
@@ -150,8 +182,14 @@ export default function AddRecordScreen() {
           sourceAccountId: accountSelected,
           date: new Date(),
         });
-      } else if (recordType === 'abono_deuda') {
-        await apiClient.post(`/debts/${selectedDebt}/payment`, {
+      } else if (recordType === 'abono_deuda' && selectedDebtTarget?.kind === 'account') {
+        await apiClient.post(`/accounts/${selectedDebtTarget.id}/payment`, {
+          amount: Number(amount.replace(/\D/g, '')),
+          sourceAccountId: accountSelected,
+          date: new Date(),
+        });
+      } else if (recordType === 'abono_deuda' && selectedDebtTarget?.kind === 'debt') {
+        await apiClient.post(`/debts/${selectedDebtTarget.id}/payment`, {
           amount: Number(amount.replace(/\D/g, '')),
           accountId: accountSelected,
           date: new Date(),
@@ -186,11 +224,6 @@ export default function AddRecordScreen() {
   const getAccountName = (id: string) => {
     const acc = accounts.find((a) => a._id === id);
     return acc ? acc.name : '';
-  };
-
-  const getDebtName = (id: string) => {
-    const d = debts.find((d) => d._id === id);
-    return d ? `${d.name} ($${d.remainingAmount.toLocaleString('es-CO')})` : '';
   };
 
   const activeType = TRANSACTION_TYPES.find((t) => t.key === recordType);
@@ -330,8 +363,10 @@ export default function AddRecordScreen() {
                 onPress={() => setDebtModalVisible(true)}
               >
                 <Ionicons name="card-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
-                <Text style={[styles.textInput, !selectedDebt && { color: colors.textMuted }]}>
-                  {getDebtName(selectedDebt) || 'Selecciona la deuda a abonar'}
+                <Text style={[styles.textInput, !selectedDebtTarget && { color: colors.textMuted }]}>
+                  {selectedDebtTarget
+                    ? `${selectedDebtTarget.name} ($${selectedDebtTarget.remaining.toLocaleString('es-CO')})`
+                    : 'Selecciona la deuda a abonar'}
                 </Text>
                 <Ionicons name="chevron-down" size={20} color={colors.textMuted} />
               </TouchableOpacity>
@@ -394,25 +429,25 @@ export default function AddRecordScreen() {
           <View style={styles.modalSheet}>
             <Text style={styles.modalTitle}>Selecciona una Deuda</Text>
             <ScrollView>
-              {debts.map((debt) => (
+              {debtTargets.map((target) => (
                 <TouchableOpacity
-                  key={debt._id}
+                  key={`${target.kind}-${target.id}`}
                   style={styles.modalItem}
                   onPress={() => {
-                    setSelectedDebt(debt._id);
+                    setSelectedDebtTarget(target);
                     setDebtModalVisible(false);
                   }}
                 >
-                  <Ionicons name={(debt.icon || 'person') as any} size={20} color={debt.color || colors.danger} />
+                  <Ionicons name={(target.icon || 'person') as any} size={20} color={target.color || colors.danger} />
                   <View style={{ marginLeft: 12, flex: 1 }}>
-                    <Text style={styles.modalItemName}>{debt.name}</Text>
+                    <Text style={styles.modalItemName}>{target.name}</Text>
                     <Text style={[styles.modalItemBalance, { color: colors.danger }]}>
-                      Restante: $ {debt.remainingAmount.toLocaleString('es-CO')}
+                      Restante: $ {target.remaining.toLocaleString('es-CO')}
                     </Text>
                   </View>
                 </TouchableOpacity>
               ))}
-              {debts.length === 0 && (
+              {debtTargets.length === 0 && (
                 <Text style={{ textAlign: 'center', color: colors.textMuted, padding: 20 }}>
                   No tienes deudas activas
                 </Text>

@@ -3,7 +3,7 @@ jest.mock('../src/utils/sendEmail', () => ({ sendEmail: jest.fn().mockResolvedVa
 import request from 'supertest';
 import app from '../src/app';
 import { connectTestDB, clearTestDB, closeTestDB } from './testDb';
-import { createUser } from './helpers';
+import { createUser, authed } from './helpers';
 import { sendEmail } from '../src/utils/sendEmail';
 
 beforeAll(connectTestDB);
@@ -80,5 +80,21 @@ describe('Auth', () => {
   it('responde genérico en forgot-password aunque el correo no exista (no revela usuarios)', async () => {
     const res = await request(app).post('/api/auth/forgot-password').send({ email: 'noexiste@example.com' });
     expect(res.status).toBe(200);
+  });
+
+  it('guarda el orden personalizado de recordatorios y deudas por separado', async () => {
+    const { token, body } = await createUser(app, { email: 'orden@example.com', username: 'ordenuser' });
+    expect(body.preferences.reminderOrder).toEqual([]);
+    expect(body.preferences.debtOrder).toEqual([]);
+
+    const res = await authed(app, token)
+      .put('/api/auth/preferences')
+      .send({ reminderOrder: ['r2', 'r1'], debtOrder: ['d2', 'd1'] });
+
+    expect(res.status).toBe(200);
+    expect(res.body.preferences.reminderOrder).toEqual(['r2', 'r1']);
+    expect(res.body.preferences.debtOrder).toEqual(['d2', 'd1']);
+    // No se pisan entre sí ni afectan otras preferencias
+    expect(res.body.preferences.accountOrder).toEqual([]);
   });
 });

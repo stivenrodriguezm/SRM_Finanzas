@@ -5,6 +5,8 @@ export interface IUserPreferences {
   hideAmounts: boolean;
   accountOrder: string[];
   selectedAccounts: string[];
+  reminderOrder: string[];
+  debtOrder: string[];
 }
 
 export interface IUser extends Document {
@@ -32,6 +34,8 @@ const UserSchema = new Schema<IUser>(
       hideAmounts: { type: Boolean, default: false },
       accountOrder: { type: [String], default: [] },
       selectedAccounts: { type: [String], default: [] },
+      reminderOrder: { type: [String], default: [] },
+      debtOrder: { type: [String], default: [] },
     },
     resetPasswordCodeHash: { type: String, select: false },
     resetPasswordExpires: { type: Date, select: false },

@@ -2,6 +2,7 @@ import 'react-native-gesture-handler';
 import React from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer, DefaultTheme, DarkTheme, Theme } from '@react-navigation/native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AppNavigator from './src/navigation/AppNavigator';
 import { PreferencesProvider, usePreferences } from './src/context/PreferencesContext';
 import { AuthProvider } from './src/context/AuthContext';
@@ -31,10 +32,12 @@ function Root() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <PreferencesProvider>
-        <Root />
-      </PreferencesProvider>
-    </AuthProvider>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <PreferencesProvider>
+          <Root />
+        </PreferencesProvider>
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }

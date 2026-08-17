@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import {
-  View, Text, StyleSheet, SafeAreaView, ScrollView,
+  View, Text, StyleSheet, ScrollView,
   TouchableOpacity, Modal, TextInput, Switch, Alert, ActivityIndicator
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { usePreferences } from '../context/PreferencesContext';
 import { useAuth } from '../context/AuthContext';
@@ -352,7 +353,7 @@ export default function TransactionsScreen() {
 
       <View style={styles.header}>
         <View style={styles.headerRow}>
-          <Text style={styles.headerTitle}>Historial de Transacciones</Text>
+          <Text style={styles.headerTitle} numberOfLines={1} ellipsizeMode="tail">Historial de Transacciones</Text>
           <View style={styles.headerActions}>
             <TouchableOpacity style={styles.headerIconBtn} onPress={() => setIsPrivate(!isPrivate)} activeOpacity={0.7}>
               <Ionicons name={isPrivate ? 'eye-off-outline' : 'eye-outline'} size={22} color={colors.textSecondary} />
@@ -520,15 +521,16 @@ const getStyles = (colors: Colors) => StyleSheet.create({
   },
   headerRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
+    gap: 12,
   },
-  headerTitle: { fontSize: 24, fontWeight: 'bold', color: colors.textPrimary },
+  headerTitle: { flex: 1, fontSize: 21, fontWeight: 'bold', color: colors.textPrimary },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flexShrink: 0,
   },
   headerIconBtn: {
     padding: 6,
