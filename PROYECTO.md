@@ -1,6 +1,6 @@
 # Finanzas Personales — Documentación del proyecto
 
-> Última actualización: 2026-08-16 (abono directo a cuentas de deuda)
+> Última actualización: 2026-08-17 (backend desplegado en VPS, ya no depende del Mac)
 > Este archivo es la fuente de verdad sobre qué es la app, cómo está construida y qué falta.
 > Si algo aquí no coincide con el código, el código manda — y este archivo debe corregirse (ver [CLAUDE.md](CLAUDE.md)).
 
@@ -28,7 +28,7 @@ Repo git inicializado en la raíz, con remoto `origin` en GitHub (`stivenrodrigu
 - Stack: Node.js, **TypeScript** (`strict: true`), Express 5, Mongoose 9 (MongoDB), JWT (`jsonwebtoken`), `bcryptjs`, `zod` (validación), `nodemailer` (envío de correo).
 - Entry point: `src/server.ts` (conecta DB y levanta `app.listen`). `src/app.ts` exporta la app de Express ya configurada (rutas + middlewares) sin conectar DB ni escuchar — es lo que importan los tests.
 - Scripts: `npm run dev` (tsx watch), `npm run build` (compila a `dist/`), `npm start` (corre `dist/server.js`), `npm run typecheck`, `npm test` (Jest), `npm run migrate:debt-transactions` (script de migración puntual, ver 3.4).
-- Variables de entorno (`backend/.env`, no versionado — ver `.env.example`): `PORT` (**5005**), `MONGO_URI`, `JWT_SECRET`, `EMAIL_USER`, `EMAIL_APP_PASSWORD`, `EMAIL_FROM` (estas tres para recuperación de contraseña — ver 3.2).
+- Variables de entorno (`backend/.env`, no versionado — ver `.env.example`): `PORT` (**5005**), `MONGO_URI`, `JWT_SECRET`, `EMAIL_USER`, `EMAIL_APP_PASSWORD`, `EMAIL_FROM` (estas tres para recuperación de contraseña — ver 3.2), `GEMINI_API_KEY`/`GEMINI_MODEL` (análisis con IA — ver endpoint `Analysis` en 3.2; `GEMINI_MODEL` usa un alias "latest" en vez de una versión fechada, porque Google retira esas versiones de vez en cuando — el default es `gemini-flash-lite-latest`; se probó `gemini-flash-latest` pero devolvía 503 por alta demanda de forma consistente al momento de este cambio, mientras que la variante "lite" respondió siempre bien con la misma calidad de análisis en las pruebas).
 - Todas las rutas bajo `/api` están protegidas con el middleware `protect` (`src/middlewares/authMiddleware.ts`), excepto `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/forgot-password` y `POST /api/auth/reset-password`.
 - `protect` espera un JWT en el header `Authorization: Bearer <token>` y expone `req.user` (documento completo de `User`, sin password).
 - **Manejo de errores centralizado**: los controllers usan `catchAsync` (envuelve el handler y reenvía cualquier rechazo a `next`) y lanzan `throw new AppError(mensaje, statusCode)` en vez de `res.status().json()` manual. `src/middlewares/errorHandler.ts` captura todo al final: si es un `AppError` responde su mensaje tal cual; cualquier otro error (bug, fallo de Mongo) se loguea en el servidor y al cliente solo le llega `{ message: 'Error interno del servidor' }` — nunca se filtra `error.message`/stack de errores no operacionales.
@@ -38,11 +38,12 @@ Repo git inicializado en la raíz, con remoto `origin` en GitHub (`stivenrodrigu
 
 | Modelo | Campos clave | Notas |
 |---|---|---|
-| `User` | `name`, `username`, `email`, `password` (hash), `preferences: { theme, hideAmounts, accountOrder, selectedAccounts }`, `resetPasswordCodeHash?`, `resetPasswordExpires?` (ambos `select: false`) | `preferences` existe en el modelo y tiene endpoint (`PUT /api/auth/preferences`) pero **el frontend no lo usa** (ver 6). Los campos de reset de contraseña se usan en el flujo de recuperación (3.2). |
+| `User` | `name`, `username`, `email`, `password` (hash), `preferences: { theme, hideAmounts, accountOrder, selectedAccounts, reminderOrder, debtOrder }`, `resetPasswordCodeHash?`, `resetPasswordExpires?` (ambos `select: false`) | `preferences` tiene endpoint (`PUT /api/auth/preferences`, actualización parcial — solo pisa los campos presentes en el body). `theme`/`hideAmounts` no los usa el móvil (ver 6). `accountOrder`/`selectedAccounts`/`reminderOrder`/`debtOrder` sí — son el orden personalizado y la visibilidad de cuentas en Home (ver 4.2/4.3). Los campos de reset de contraseña se usan en el flujo de recuperación (3.2). |
 | `Account` | `user`, `name`, `balance`, `color`, `icon`, `isLiability`, `description` | Representa una cuenta/bolsillo. `isLiability` distingue cuentas normales de "pasivos". Índice en `user`. |
 | `Transaction` | `user`, `account`, `reminder?`, `debt?`, `title`, `amount`, `type: ingreso\|egreso\|abono_deuda`, `date` | El `type` determina si suma o resta del `balance` de la cuenta. `debt` (nuevo) liga un abono directamente a la deuda que paga. Índices en `{user,date}`, `{user,debt}`, `{user,reminder}`. |
 | `Debt` | `user`, `name`, `totalAmount`, `remainingAmount`, `type: debo\|me_deben`, `dueDate?`, `color`, `icon`, `isActive`, `description` | `debo` = yo debo (pasivo), `me_deben` = préstamo que hice (activo/cuenta por cobrar). Índice en `user`. |
 | `Reminder` | `user`, `title`, `date`, `type: unico\|periodico`, `amount?`, `isPaid`, `paymentLink?`, `description?`, `dayOfMonth?`, `notificationConfig`, `snoozedUntil?` | Recordatorios de pago; los periódicos avanzan de fecha automáticamente al pagarse. `notificationConfig` (subdocumento con defaults, ver 4.6) controla cómo se notifica cada recordatorio; `snoozedUntil` aplaza el ciclo de notificaciones a un día puntual sin tocar `date`. Ambos se limpian/aplican solo del lado del cálculo en mobile — el backend solo los persiste. Índice en `{user,date}`. |
+| `AiChat` | `user`, `title`, `messages: [{role: 'user'\|'model', text, charts?, createdAt}]` | Historial de conversaciones del "Análisis con IA" (ver endpoint `Analysis` en 3.2). `charts?` solo en mensajes `model`, cuando la IA incluyó alguna. Índice en `{user,updatedAt}` para listar rápido. |
 
 ### 3.2 Endpoints por recurso
 
@@ -77,6 +78,29 @@ Todos bajo `http://<host>:5005/api`.
 - `POST /:id/pay` — crea una `Transaction` tipo `egreso` ligada al recordatorio (`reminder` ref) y ajusta el balance; si es periódico avanza la fecha un mes exacto desde su vencimiento actual (no desde "hoy" — bug corregido, ver 3.4). Todo en una transacción de Mongo.
 - `GET /:id/payments` — historial de pagos (`Transaction.find({ reminder: id })`).
 
+**Analysis** (`/analysis`) — análisis financiero con IA (Gemini), como **chat persistente**, no como
+un análisis de un solo disparo. Modelo `AiChat` (`user`, `title`, `messages: [{role: 'user'|'model',
+text, charts?, createdAt}]`, timestamps).
+- `GET /chats` — lista los chats del usuario (`title`, `createdAt`, `updatedAt`), más recientes primero.
+- `POST /chats` — crea un chat nuevo: manda el mensaje fijo `"Haz un análisis general de mis
+  finanzas."` a Gemini con los datos financieros actuales del usuario adjuntos, guarda ese mensaje +
+  la respuesta del modelo como los dos primeros mensajes del chat, y devuelve el chat completo (201).
+  El título se genera de la primera frase de la respuesta del modelo (sin llamada extra a la IA).
+- `GET /chats/:id` — chat completo (mensajes incluidos). 404/401 si no existe o no es del usuario.
+- `POST /chats/:id/messages` — `{ text: string }` (máx. 2000 caracteres). Manda a Gemini el
+  **historial completo de la conversación** (para que la respuesta tenga contexto de lo ya hablado)
+  más el mensaje nuevo del usuario — a ese último turno se le anteponen, de forma invisible para el
+  chat, los datos financieros **recién consultados** (no los de cuando se creó el chat), así cada
+  respuesta usa cifras frescas aunque la conversación lleve tiempo abierta. Devuelve el chat completo
+  actualizado.
+- `DELETE /chats/:id` — borra el chat. 404/401 igual que arriba.
+- `src/utils/geminiClient.ts::generateAiChatReply(contents)` es la única función que habla con la API
+  de Gemini (`GEMINI_API_KEY`/`GEMINI_MODEL` en `.env`, ver 3.), con salida estructurada
+  (`responseSchema`): `reply` (siempre) y `charts?` (opcional — solo cuando una gráfica realmente
+  aporta a esa respuesta puntual, no se fuerza en cada turno como si fuera un informe). Si falta la
+  API key responde 503; si la llamada a Gemini falla o la respuesta no es JSON válido, 502 — siempre
+  con `AppError` en español, nunca un error crudo de la API externa.
+
 ### 3.3 Reglas de negocio importantes
 - El balance de una `Account` **sigue sin ser una fuente derivada** (no se recalcula desde las transacciones), pero cada operación que lo toca (crear/editar/borrar transacción, pagar deuda, pagar recordatorio) corre dentro de `session.withTransaction()` (`src/utils/withTransaction.ts`). Si algo falla a mitad de camino, Mongo revierte todo el conjunto — ya no puede quedar el balance actualizado sin la transacción, o viceversa.
 - `PUT /transactions/:id` no permite cambiar el `type` (p. ej. de `egreso` a `abono_deuda`): la lógica de conversión sería ambigua respecto al `remainingAmount` de una deuda. Para cambiar el tipo hay que borrar y crear una transacción nueva.
@@ -94,17 +118,19 @@ Todos bajo `http://<host>:5005/api`.
 
 ### 4.1 Navegación (`src/navigation/AppNavigator.tsx`, tipos en `src/navigation/types.ts`)
 - Si `!isAuthenticated` → stack de auth: `Landing`, `Register`, `ForgotPassword`, `ResetPassword`.
-- Si autenticado → el stack completo queda envuelto en `<BiometricGate>` (ver 4.5) y contiene `TabRoot` (bottom tabs: **Balance** = Home, **Transacciones**, **Deudas**, **Recordatorios**, **Análisis**) + pantallas modal/stack: `AddRecord`, `AddReminder`, `ReminderDetail`, `Perfil`, `DebtDetail`, `AddDebt`, `Receivables` ("Me Deben"), `Preferences`, `AccountDetail`.
+- Si autenticado → el stack completo queda envuelto en `<BiometricGate>` (ver 4.5) y contiene `TabRoot` (bottom tabs: **Balance** = Home, **Transacciones**, **Deudas**, **Recordatorios**, **Análisis**) + pantallas modal/stack: `AddRecord`, `AddReminder`, `ReminderDetail`, `Perfil`, `DebtDetail`, `AddDebt`, `Receivables` ("Me Deben"), `Preferences`, `AccountDetail`, `AiChatHistory`, `AiChat`.
 - `RootStackParamList`/`TabParamList` en `navigation/types.ts` documentan exactamente qué params espera cada pantalla — son la referencia si vas a agregar una navegación nueva (varios params reales no eran obvios por el nombre de la pantalla, p. ej. `DebtDetail` recibe `id`, `title`, `total`, `color`, `icon`, `iconColor`, `iconBg`, `type`).
 
 ### 4.2 Pantallas (`src/screens/`)
-- `HomeScreen.tsx` — balance general / listado de cuentas.
+- `HomeScreen.tsx` — balance general / listado de cuentas. La fila de cuentas se reordena manteniendo presionada una tarjeta (`react-native-draggable-flatlist` + `GestureHandlerRootView` local a la pantalla — no hay uno global en `App.tsx`), persistido en `user.preferences.accountOrder`. La lógica de "aplicar el orden guardado" / "recalcular el orden a guardar tras soltar" está en `src/utils/orderPreference.ts` (`applySavedOrder`/`mergeOrderAfterDrag`), compartida con `RemindersScreen.tsx`/`DebtsScreen.tsx` — cualquier pantalla nueva con listas reordenables debería reusar esas dos funciones, no reinventar el merge de "ids ocultos/no visibles se van al final".
 - `TransactionsScreen.tsx` — listado de movimientos; **tocar una transacción abre un modal para editarla (título/monto/cuenta) o eliminarla**.
-- `AddRecordScreen.tsx` — crear transacción. El tipo "Abono a Deuda" tiene **dos modos** según cómo se llegó a la pantalla: si `route.params.preselectedAccount` es una cuenta con `isLiability: true` (llegaste con el botón "Abonar" de `AccountDetailScreen`), la pantalla fija esa cuenta como destino y solo pide "Cuenta Origen", llamando a `POST /accounts/:id/payment`; si no, es el flujo original de abonar a un préstamo del modelo `Debt` ("Cuenta Origen" + selector de deuda), llamando a `POST /debts/:id/payment`. Ver la nota de la sección 3.2 sobre por qué son dos endpoints distintos.
-- `DebtsScreen.tsx` / `DebtDetailScreen.tsx` / `AddDebtScreen.tsx` — cuentas de deuda (isLiability) y deudas persona-a-persona. `AddDebtScreen` en modo "Modificar" ahora precarga los datos existentes de la deuda (antes abría un formulario vacío).
+- `AddRecordScreen.tsx` — crear transacción. El tipo "Abono a Deuda" tiene **dos modos** según cómo se llegó a la pantalla: si `route.params.preselectedAccount` es una cuenta con `isLiability: true` (llegaste con el botón "Abonar" de `AccountDetailScreen`), la pantalla fija esa cuenta como destino y solo pide "Cuenta Origen", llamando a `POST /accounts/:id/payment`; si no, es el flujo genérico de "Abono a Deuda", con un selector combinado de **todo** a lo que se puede abonar (cuentas de deuda `isLiability` + préstamos persona-a-persona del modelo `Debt`, ambos tipos) — según qué se elija, llama a `POST /accounts/:id/payment` o `POST /debts/:id/payment`. Antes el selector solo mostraba `Debt`, lo que dejaba afuera las cuentas de deuda (que hoy es la forma normal de registrar "debo").
+- `DebtsScreen.tsx` / `DebtDetailScreen.tsx` / `AddDebtScreen.tsx` — cuentas de deuda (isLiability) y deudas persona-a-persona. `AddDebtScreen` en modo "Modificar" ahora precarga los datos existentes de la deuda (antes abría un formulario vacío). `DebtsScreen` reordena manteniendo presionada una cuenta de deuda (mismo patrón que `HomeScreen`, persistido en `debtOrder`).
 - `ReceivablesScreen.tsx` — deudas de tipo `me_deben` ("Me Deben").
-- `RemindersScreen.tsx` / `ReminderDetailScreen.tsx` / `AddReminderScreen.tsx` — recordatorios de pago.
-- `ChartsScreen.tsx` — **nueva**, pestaña "Análisis": flujo neto mensual (barras, últimos 6 meses) y distribución de balance por cuenta (dona), más tarjetas de resumen de deudas.
+- `RemindersScreen.tsx` / `ReminderDetailScreen.tsx` / `AddReminderScreen.tsx` — recordatorios de pago. `RemindersScreen` reordena manteniendo presionado un recordatorio (mismo patrón, persistido en `reminderOrder`).
+- `ChartsScreen.tsx` — pestaña "Análisis": flujo neto mensual (barras, últimos 6 meses), distribución de balance por cuenta (dona) y tarjetas de resumen de deudas — esto siempre se muestra, no depende de la IA. Tarjeta "Analizar con IA": crea un chat nuevo (`createAiChat`, `src/services/aiChat.ts`) y navega directo a `AiChatScreen` con ese id — el botón abre el chat, no un formulario. Debajo, un link chico "Ver conversaciones anteriores" navega a `AiChatHistoryScreen`.
+- `AiChatHistoryScreen.tsx` — **nueva**: lista los chats guardados (`GET /analysis/chats`), tocar uno abre `AiChatScreen` con ese `chatId`; ícono de basura por fila (con confirmación) para `deleteAiChat`; botón flotante "+ Nuevo análisis" para crear uno sin volver a la pestaña Análisis.
+- `AiChatScreen.tsx` — **nueva**, la conversación en sí: recibe siempre `{ chatId }` (lo crea quien navega, nunca la pantalla misma) y hace `GET /analysis/chats/:id` al montar. `FlatList` de mensajes tipo chat (burbuja del usuario a la derecha, de la IA a la izquierda con ícono), cada mensaje de la IA puede traer sus propias `charts[]` (mismo render `BarChart`/`PieChart`/`LineChart` de `react-native-chart-kit` que antes vivía en `ChartsScreen.tsx`). Envío optimista (la burbuja del usuario aparece antes de tener respuesta, con una burbuja de "Pensando…" mientras se espera) — si falla, se revierte y el texto vuelve al input. Ícono de basura en el header para borrar el chat actual.
 - `AccountDetailScreen.tsx` — detalle de una cuenta.
 - `ProfileScreen.tsx` — perfil; "Cambiar contraseña" e "Información personal" ahora llaman de verdad al backend (antes eran formularios que no persistían nada). Incluye acciones de exportar datos.
 - `PreferencesScreen.tsx` — tema, privacidad por sección, notificaciones de recordatorios y **el nuevo toggle de bloqueo biométrico**.
@@ -115,7 +141,7 @@ Todos bajo `http://<host>:5005/api`.
 - `PreferencesContext.tsx` — preferencias **locales al dispositivo** en `AsyncStorage` bajo `appPreferences`: tema (`light|dark|adaptive`), privacidad por pantalla, notificaciones de recordatorios, y **`biometricLockEnabled`** (nuevo). Expone `colors` según el tema activo (`src/theme/theme.ts`).
 
 ### 4.4 Cliente HTTP centralizado
-`src/services/apiClient.ts` es ahora la **única** forma en que la app habla con el backend. Es una instancia de `axios` con `baseURL` = `API_URL` (`src/config/api.ts`, hostname Bonjour del Mac — ver sección 7) y un interceptor de request que agrega `Authorization: Bearer <token>` automáticamente, leyendo un token en memoria actualizado por `setAuthToken()` (llamado desde `AuthContext` en login/register/logout/carga inicial). Ninguna pantalla arma headers a mano ni importa `axios` directo — antes cada una repetía `axios.get(...)` con el header pegado, en 12 archivos distintos.
+`src/services/apiClient.ts` es ahora la **única** forma en que la app habla con el backend. Es una instancia de `axios` con `baseURL` = `API_URL` (`src/config/api.ts`, la URL HTTPS del VPS — ver sección 7) y un interceptor de request que agrega `Authorization: Bearer <token>` automáticamente, leyendo un token en memoria actualizado por `setAuthToken()` (llamado desde `AuthContext` en login/register/logout/carga inicial). Ninguna pantalla arma headers a mano ni importa `axios` directo — antes cada una repetía `axios.get(...)` con el header pegado, en 12 archivos distintos.
 
 `src/utils/apiError.ts` centraliza la extracción del mensaje de error (`getErrorMessage(error, fallback)`), usado en los `catch` de las pantallas en vez de repetir `error.response?.data?.message || '...'`.
 
@@ -131,7 +157,7 @@ Son notificaciones **locales al dispositivo** (`expo-notifications`, no push des
   - `mode: 'off'` — nada.
   - Recordatorio pagado (`isPaid`) → nada, sin importar el modo.
 - `src/services/notifications.ts` — capa fina sobre la API de Expo. `syncReminderNotifications(reminders, notificationsEnabled)` cancela **todas** las notificaciones locales pendientes (esta app no usa notificaciones locales para nada más) y, si el toggle de Preferencias está activo y hay permiso concedido, junta los avisos de todos los recordatorios, los ordena por fecha y agenda como máximo `MAX_TOTAL_SCHEDULED = 60` (los más próximos primero) — **límite técnico**: iOS permite ~64 notificaciones locales pendientes por app, así que se deja margen y se prioriza lo urgente si hay varios recordatorios "insistentes" activos el mismo día. Se llama tras cada fetch de recordatorios (`HomeScreen`, `RemindersScreen`) y tras aplazar/editar un recordatorio individual (`ReminderDetailScreen`).
-- **Limitación conocida**: el ciclo de un día (la cascada de `escalating`) se recalcula al abrir la app; si el usuario no abre la app ni el día antes ni el día del vencimiento, ese día no llega a agendarse. Es la misma limitación de fondo que ya existía (no hay tareas en background en iOS con la cuenta de desarrollador actual — ver sección 7), solo que ahora es más perceptible porque el modo insistente depende de refrescos más frecuentes.
+- **Limitación conocida**: el ciclo de un día (la cascada de `escalating`) se recalcula al abrir la app; si el usuario no abre la app ni el día antes ni el día del vencimiento, ese día no llega a agendarse. Es la misma limitación de fondo que ya existía (no hay tareas en background en iOS con la cuenta de desarrollador actual — ver sección 7.2), solo que ahora es más perceptible porque el modo insistente depende de refrescos más frecuentes.
 - Aplazar (`snoozedUntil`, editable desde `ReminderDetailScreen` con `@react-native-community/datetimepicker`) no cambia `date`/monto/periodicidad — solo mueve el día en que dispara el ciclo de notificaciones. Se limpia automáticamente al marcar el recordatorio como pagado (`markReminderPaid`/`payReminder` en el backend).
 - El toggle "Notificaciones de Recordatorios" en Preferencias pide permiso al activarse y cancela todo lo pendiente de inmediato al desactivarse (`cancelAllReminderNotifications`).
 
@@ -165,23 +191,36 @@ npm run typecheck
 
 Para que **"olvidé mi contraseña"** envíe correos de verdad, completa `EMAIL_USER`/`EMAIL_APP_PASSWORD` en `backend/.env` con una [contraseña de aplicación de Gmail](https://myaccount.google.com/apppasswords) (requiere verificación en 2 pasos activa en esa cuenta). Sin esto, el endpoint sigue funcionando (no falla), pero el correo no se envía y solo queda un log en la consola del backend.
 
-La app móvil necesita al backend corriendo y alcanzable en la red local — ver sección 7 para el detalle de despliegue en iPhone físico.
+Para que **"Analizar con IA"** (pestaña Análisis, ahora un chat — ver 3.2 y 4.2) funcione, completa
+`GEMINI_API_KEY` en `backend/.env` con una API key de [Google AI Studio](https://aistudio.google.com/apikey).
+Sin esto, `POST /api/analysis/chats` responde 503 con un mensaje claro — el resto de la pestaña
+(gráficas fijas, totales) funciona igual.
+
+La app móvil habla con el backend en producción (VPS, ver sección 7.1) — no necesita que el Mac esté corriendo nada para funcionar. Sección 7.2 para el detalle de build/instalación en iPhone físico.
 
 ## 6. Deuda técnica / cosas a tener en cuenta
 
-1. **Preferencias duplicadas.** El backend (`User.preferences`) tiene `theme`, `hideAmounts`, `accountOrder`, `selectedAccounts` con su propio endpoint `PUT /api/auth/preferences`, pero la app usa únicamente `PreferencesContext` con `AsyncStorage` local — el backend nunca se llama para esto. Si el objetivo es sincronizar preferencias entre dispositivos, falta esa integración; si no, se podría simplificar/quitar del modelo de backend.
-2. **Sin backend en la nube.** El Mac tiene que estar prendido y en la misma red que el iPhone para que la app funcione (ver sección 7). Es una limitación de infraestructura conocida y aceptada por ahora, no un bug.
+1. **Preferencias parcialmente duplicadas (ya no todas sin usar).** El backend (`User.preferences`) tiene `theme`, `hideAmounts`, `accountOrder`, `selectedAccounts`, `reminderOrder`, `debtOrder` con su propio endpoint `PUT /api/auth/preferences`. `theme`/`hideAmounts` siguen sin usarse desde el móvil (la app maneja tema/privacidad solo local, vía `PreferencesContext`/`AsyncStorage`) — de esos dos sí sigue aplicando la duda de si conviene simplificarlos/quitarlos del backend. Pero `accountOrder`/`selectedAccounts`/`reminderOrder`/`debtOrder` **sí se usan activamente**: son el orden personalizado (mantener presionado para reordenar, ver 4.2) de cuentas/recordatorios/cuentas de deuda, y si acabas de tocar algo relacionado con reordenar listas, este es el lugar — no lo confundas con `PreferencesContext` local.
+2. ~~Sin backend en la nube~~ — **resuelto (2026-08-17).** El backend corre 24/7 en un VPS, no depende del Mac. Ver sección 7.1.
 3. **Cobertura de tests desigual a propósito.** El backend tiene una suite real cubriendo toda la lógica de dinero (22 tests). El móvil tiene tests solo para lógica pura sin dependencias nativas (`apiError`, `csv`, el interceptor de `apiClient`, un smoke test de componente) — no hay tests de integración de pantallas completas ni de navegación. Fue una decisión deliberada de prioridad (el dinero es lo crítico), no un olvido.
 4. **`react-native-chart-kit`** está bien pero es una librería relativamente estática (sin animaciones ricas ni interacción táctil sobre las barras/dona). Si en el futuro se quiere algo más pulido, la alternativa natural es Victory Native XL (requiere `@shopify/react-native-skia`, una dependencia nativa más pesada).
 5. **`SafeAreaView` deprecado (migración parcial en curso).** El `SafeAreaView` de `'react-native'` no calcula bien los insets del notch/Dynamic Island cuando la pantalla está anidada dentro de navegadores (tab + stack) — esto no es solo una advertencia de consola, causó un bug real (header recortado/tapado por el borde en `TransactionsScreen`). `App.tsx` ya envuelve la app en `SafeAreaProvider` (`react-native-safe-area-context`) y `TransactionsScreen.tsx` ya usa el `SafeAreaView` de esa librería. **El resto de pantallas todavía usa el `SafeAreaView` de `'react-native'`** — si aparece el mismo síntoma (contenido cortado cerca del borde/notch) en otra pantalla, migrarla de la misma forma (cambiar el import a `react-native-safe-area-context`; el `SafeAreaProvider` raíz ya existe).
 
-## 7. Despliegue en el iPhone físico
+## 7. Despliegue
 
-Modelo actual: **no hay backend en la nube**. El iPhone corre la app nativa (compilada e instalada desde Xcode) y le habla al backend Express que corre en el Mac, en la misma red Wi-Fi. Esto implica dos requisitos permanentes mientras no se despliegue el backend a un host real:
-- El Mac tiene que estar encendido y con `backend/` corriendo (`npm run dev`, puerto 5005) para que la app funcione.
-- El iPhone y el Mac tienen que estar en la misma red Wi-Fi (el hostname `.local` de la sección 4.4 no resuelve a través de redes distintas ni por datos móviles).
+El backend corre en producción en un VPS Ubuntu compartido con otro proyecto (`api.muebleslottus.com`, que "no se puede caer" — cualquier cambio de infraestructura en el VPS debe evitar tocar ese proyecto). La app móvil le habla siempre a esa URL, en cualquier red (Wi-Fi o datos móviles) — ya no depende de que el Mac esté encendido ni de estar en la misma red.
 
-### 7.1 Proyecto nativo iOS
+### 7.1 Backend en el VPS
+
+- **Aislamiento**: el backend corre bajo su propio usuario Linux `finanzas` (`/home/finanzas/app/backend`), con su propio Node vía `nvm` (`~/.nvm`, Node 22) y su propio daemon de PM2 (`~/.pm2`) — completamente separado del usuario/proceso del otro proyecto.
+- **Proceso**: gestionado con PM2 bajo el nombre `finanzas-backend` (`pm2 list`, `pm2 logs finanzas-backend`, `pm2 restart finanzas-backend`). Arranque automático al reiniciar el VPS ya configurado (`pm2 startup` + `pm2 save`, systemd unit `pm2-finanzas.service`).
+- **Red**: el proceso Node escucha solo en `127.0.0.1:5005` (`HOST=127.0.0.1` en `backend/.env` del VPS — ver `server.ts`), nunca expuesto directo a internet. Nginx (ya instalado, comparte instancia con el otro proyecto) hace de reverse proxy: bloque propio en `/etc/nginx/sites-available/finanzas-api.muebleslottus.com`, symlink en `sites-enabled`, proxy a `127.0.0.1:5005`.
+- **Dominio y HTTPS**: `https://finanzas-api.muebleslottus.com` (subdominio de `muebleslottus.com`, registro DNS tipo A → `147.93.43.111`). Certificado real de Let's Encrypt vía Certbot (`sudo certbot --nginx -d finanzas-api.muebleslottus.com`, ya instalado en el VPS) — se renueva solo (cron/systemd timer de certbot). Esto es lo que consume la app móvil como `API_URL` (`src/config/api.ts`).
+- **Base de datos**: sigue siendo MongoDB **Atlas** (la nube de Mongo, no algo que corra en el VPS) — el VPS solo aloja el proceso de Node que se conecta a Atlas por `MONGO_URI`. Ver sección 3.
+- **Acceso**: `finanzas` tiene login SSH por llave (sin password, sin sudo). Para cualquier tarea que necesite root (systemd, editar config de Nginx, Certbot) hay que pedirle al usuario que lo corra desde la cuenta admin del otro proyecto (la única con sudo en este VPS) — `finanzas` está deliberadamente sin sudo por aislamiento del proyecto que no puede caerse.
+- **Desplegar un cambio de código nuevo**: conectarse como `finanzas`, `git pull` (o `scp`/`rsync` si no hay repo ahí — confirmar cuál de las dos formas se está usando antes de asumir), `npm install` si cambiaron dependencias, `npm run build`, `pm2 restart finanzas-backend`. No hace falta tocar Nginx/Certbot/systemd para esto — todo eso ya queda fijo.
+
+### 7.2 App móvil en el iPhone físico
 - `mobile-app/ios/` es un proyecto Xcode ya generado (`expo prebuild`), con CocoaPods instalado.
 - Bundle ID: `com.stiven.finanzas`. Nombre del esquema/target: `Finanzas`.
 - Firma ya configurada en el `.pbxproj`: `DEVELOPMENT_TEAM = ZLCWNMPT33`.

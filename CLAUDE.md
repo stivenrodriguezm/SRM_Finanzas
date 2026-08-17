@@ -27,18 +27,21 @@ cuando edites el archivo.
   existía antes ya se eliminó — no lo recrees ni lo confundas con nada.
 - Backend y mobile están **en TypeScript, `strict: true`**. Antes de dar por terminado un cambio en cualquiera de los
   dos, corre `npm run typecheck` (y `npm test`) en la carpeta correspondiente — ambos deben quedar limpios.
-- La URL del backend en la app móvil vive en un solo sitio: `mobile-app/src/config/api.ts` (hostname `.local` del Mac,
-  no IP fija). Todas las pantallas llaman al backend a través de `mobile-app/src/services/apiClient.ts` (instancia de
+- La URL del backend en la app móvil vive en un solo sitio: `mobile-app/src/config/api.ts` (`https://finanzas-api.muebleslottus.com/api`,
+  el VPS en producción — ya no el Mac). Todas las pantallas llaman al backend a través de `mobile-app/src/services/apiClient.ts` (instancia de
   axios centralizada que inyecta el JWT solo). Si ves una pantalla importando `axios` directo o armando headers de
   `Authorization` a mano, es una regresión al patrón viejo — debe usar `apiClient`. Ver sección 4.4 de `PROYECTO.md`.
-- Las operaciones que mueven dinero (crear/editar/borrar transacción, pagar deuda, pagar recordatorio) están envueltas
-  en `session.withTransaction()` de Mongo (`backend/src/utils/withTransaction.ts`). Cualquier nueva forma de mover
-  dinero entre `Account`/`Debt`/`Transaction` debe seguir ese mismo patrón, no hacer los `save()` sueltos.
-- El backend no está desplegado en la nube: la app en el iPhone depende de que el Mac esté encendido, con
-  `backend/` corriendo, y en la misma red Wi-Fi que el iPhone. Ver sección 8 de `PROYECTO.md` para el detalle de
-  firma de Xcode / dispositivo registrado antes de tocar nada de compilación iOS. Si agregas una dependencia nativa
-  nueva al móvil, declárala como dependencia directa en `package.json` (no confíes en que quede resuelta solo por ser
-  transitiva de `expo`) y corre `npx expo prebuild --platform ios` + `pod install` después.
+- Las operaciones que mueven dinero (crear/editar/borrar transacción, pagar deuda, pagar recordatorio, abono a cuenta
+  de deuda) están envueltas en `session.withTransaction()` de Mongo (`backend/src/utils/withTransaction.ts`). Cualquier
+  nueva forma de mover dinero entre `Account`/`Debt`/`Transaction` debe seguir ese mismo patrón, no hacer los `save()`
+  sueltos.
+- El backend corre 24/7 en un VPS Ubuntu (usuario `finanzas`, PM2, detrás de Nginx con HTTPS) — ya no depende del Mac
+  ni de la red Wi-Fi. Ese VPS es compartido con otro proyecto que "no se puede caer"; `finanzas` está aislado a
+  propósito y sin sudo, así que cualquier cambio de infraestructura (Nginx, systemd, Certbot) necesita la cuenta admin
+  del otro proyecto. Ver sección 7.1 de `PROYECTO.md` para el detalle completo, y 7.2 para firma de Xcode / dispositivo
+  registrado antes de tocar nada de compilación iOS. Si agregas una dependencia nativa nueva al móvil, declárala como
+  dependencia directa en `package.json` (no confíes en que quede resuelta solo por ser transitiva de `expo`) y corre
+  `npx expo prebuild --platform ios` + `pod install` después.
 - Todo el texto de UI, commits de negocio y mensajes de error del backend están en español — sigue esa convención
   al escribir código nuevo (nombres de variables/funciones en inglés está bien, pero strings visibles al usuario en
   español).
