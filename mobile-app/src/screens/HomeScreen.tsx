@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, TouchableOpacity,
-  ScrollView, Modal, TextInput, Switch, Platform, KeyboardAvoidingView, ActivityIndicator,
-  RefreshControl
+  ScrollView, Platform, RefreshControl
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import SkeletonLoader from '../components/SkeletonLoader';
+import AccountFormModal from '../components/AccountFormModal';
 import { usePreferences } from '../context/PreferencesContext';
 import { useAuth } from '../context/AuthContext';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -95,70 +95,11 @@ export default function HomeScreen() {
   const [isAccountModalVisible, setAccountModalVisible] = useState(false);
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
-  const [isLiability, setIsLiability] = useState(false);
-  const [accountDescription, setAccountDescription] = useState('');
-  const [accountName, setAccountName] = useState('');
-  const [accountBalance, setAccountBalance] = useState('');
-  const [isSavingAccount, setIsSavingAccount] = useState(false);
 
   const openAccountModal = (mode: 'add' | 'edit', account: Account | null = null) => {
     setModalMode(mode);
     setSelectedAccount(account);
-    setAccountName(account?.name || '');
-    setAccountBalance(account?.balance ? String(account.balance) : '');
-    setIsLiability(account?.isLiability || false);
-    setAccountDescription(account?.description || '');
     setAccountModalVisible(true);
-  };
-
-  
-  const handleSaveAccount = async () => {
-    if (!accountName) {
-      alert('Por favor ingresa un nombre para la cuenta');
-      return;
-    }
-    setIsSavingAccount(true);
-    try {
-      if (modalMode === 'add') {
-        await apiClient.post('/accounts', {
-          name: accountName,
-          balance: Number(accountBalance) || 0,
-          isLiability,
-          description: accountDescription,
-          color: isLiability ? '#DC2626' : '#059669',
-          icon: isLiability ? 'card' : 'wallet',
-        });
-      } else if (selectedAccount) {
-        await apiClient.put(`/accounts/${selectedAccount._id}`, {
-          name: accountName,
-          balance: Number(accountBalance) || 0,
-          isLiability,
-          description: accountDescription,
-        });
-      }
-      setAccountModalVisible(false);
-      fetchData(); // Refresh list
-    } catch (error) {
-      console.log('Error saving account', error);
-      alert('Hubo un error al guardar la cuenta');
-    } finally {
-      setIsSavingAccount(false);
-    }
-  };
-
-  const handleDeleteAccount = async () => {
-    if (!selectedAccount) return;
-    setIsSavingAccount(true);
-    try {
-      await apiClient.delete(`/accounts/${selectedAccount._id}`);
-      setAccountModalVisible(false);
-      fetchData();
-    } catch (error) {
-      console.log('Error deleting account', error);
-      alert('Hubo un error al eliminar la cuenta');
-    } finally {
-      setIsSavingAccount(false);
-    }
   };
 
   /** Muestra el valor o asteriscos según modo privado */
@@ -505,109 +446,13 @@ export default function HomeScreen() {
         </ScrollView>
       )}
 
-      {/* ── Modal Crear / Editar Cuentas ── */}
-      <Modal visible={isAccountModalVisible} animationType="slide" transparent={true}>
-        <View style={styles.modalOverlay}>
-          <KeyboardAvoidingView 
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={styles.modalContent}
-          >
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                {modalMode === 'add' ? 'Nueva Cuenta' : 'Detalles de la Cuenta'}
-              </Text>
-              <TouchableOpacity onPress={() => setAccountModalVisible(false)}>
-                <Ionicons name="close" size={24} color={colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
-              {/* Nombre */}
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Nombre de la cuenta</Text>
-                <View style={styles.inputContainer}>
-                  <Ionicons name="card-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
-                  <TextInput
-                    style={styles.textInput}
-                    placeholder="Ej. Mi Cuenta de Ahorros"
-                    placeholderTextColor={colors.textMuted}
-                    value={accountName}
-                    onChangeText={setAccountName}
-                  />
-                </View>
-              </View>
-
-              {/* Saldo */}
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Saldo Actual</Text>
-                <View style={styles.amountInputContainer}>
-                  <Text style={styles.currencySymbol}>$</Text>
-                  <TextInput
-                    style={styles.amountInput}
-                    placeholder="0.00"
-                    keyboardType="numeric"
-                    placeholderTextColor={colors.textMuted}
-                    value={accountBalance}
-                    onChangeText={setAccountBalance}
-                  />
-                </View>
-              </View>
-
-              {/* Campo Descripción — NUEVO */}
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Descripción / Notas</Text>
-                <View style={[styles.inputContainer, { alignItems: 'flex-start' }]}>
-                  <Ionicons
-                    name="document-text-outline"
-                    size={20}
-                    color={colors.textMuted}
-                    style={[styles.inputIcon, { marginTop: 2 }]}
-                  />
-                  <TextInput
-                    style={[styles.textInput, { minHeight: 60, textAlignVertical: 'top' }]}
-                    placeholder="Ej. Cuenta de ahorros para emergencias..."
-                    placeholderTextColor={colors.textMuted}
-                    multiline
-                    value={accountDescription}
-                    onChangeText={setAccountDescription}
-                  />
-                </View>
-              </View>
-
-              {/* ¿Es deuda? */}
-              <View style={[styles.inputGroup, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
-                <View>
-                  <Text style={styles.inputLabel}>¿Es una cuenta de deuda?</Text>
-                  <Text style={{ fontSize: 12, color: colors.textSecondary }}>Ej. Tarjetas de crédito, préstamos.</Text>
-                </View>
-                <Switch
-                  value={isLiability}
-                  onValueChange={setIsLiability}
-                  trackColor={{ false: colors.border, true: colors.danger }}
-                  thumbColor={colors.white}
-                />
-              </View>
-            </ScrollView>
-
-            <TouchableOpacity style={styles.saveButton} onPress={handleSaveAccount} disabled={isSavingAccount}>
-              {isSavingAccount ? (
-                <ActivityIndicator color={colors.primaryText} />
-              ) : (
-                <Text style={styles.saveButtonText}>
-                  {modalMode === 'add' ? 'Crear Cuenta' : 'Guardar Cambios'}
-                </Text>
-              )}
-            </TouchableOpacity>
-
-            {modalMode === 'edit' && (
-              <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteAccount} disabled={isSavingAccount}>
-                <Text style={styles.deleteButtonText}>Eliminar Cuenta</Text>
-              </TouchableOpacity>
-            )}
-
-          </KeyboardAvoidingView>
-        </View>
-      </Modal>
+      <AccountFormModal
+        visible={isAccountModalVisible}
+        mode={modalMode}
+        account={selectedAccount}
+        onClose={() => setAccountModalVisible(false)}
+        onSaved={fetchData}
+      />
     </SafeAreaView>
     </GestureHandlerRootView>
   );
@@ -845,106 +690,5 @@ const getStyles = (colors: Colors) => StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: colors.textPrimary,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: colors.card,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    padding: 24,
-    paddingBottom: Platform.OS === 'ios' ? 40 : 32,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: colors.textPrimary,
-  },
-  inputGroup: {
-    marginBottom: 18,
-  },
-  inputLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.textSecondary,
-    marginBottom: 8,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.iconBg,
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  amountInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.iconBg,
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  currencySymbol: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colors.textPrimary,
-    marginRight: 8,
-  },
-  amountInput: {
-    flex: 1,
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colors.textPrimary,
-  },
-  inputIcon: {
-    marginRight: 12,
-  },
-  textInput: {
-    flex: 1,
-    fontSize: 16,
-    color: colors.textPrimary,
-  },
-  saveButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 16,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginTop: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 5,
-  },
-  saveButtonText: {
-    color: colors.primaryText,
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  deleteButton: {
-    marginTop: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-    borderRadius: 16,
-    backgroundColor: colors.dangerLight,
-  },
-  deleteButtonText: {
-    color: colors.danger,
-    fontSize: 16,
-    fontWeight: 'bold',
   },
 });

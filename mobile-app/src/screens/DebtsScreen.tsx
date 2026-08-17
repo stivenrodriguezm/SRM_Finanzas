@@ -5,9 +5,11 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { usePreferences } from '../context/PreferencesContext';
 import { useAuth } from '../context/AuthContext';
 import SkeletonLoader from '../components/SkeletonLoader';
+import AccountFormModal from '../components/AccountFormModal';
 import apiClient from '../services/apiClient';
 import { Account, AuthResponse } from '../types/models';
 import { AppNavigation } from '../navigation/types';
+import { DEBT_ACCENT } from '../theme/theme';
 
 type Colors = ReturnType<typeof usePreferences>['colors'];
 
@@ -27,6 +29,7 @@ export default function DebtsScreen() {
 
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedAccounts, setSelectedAccounts] = useState<string[]>([]);
+  const [isAddAccountModalVisible, setAddAccountModalVisible] = useState(false);
 
   const fetchDebtAccounts = async () => {
     if (!token) return;
@@ -74,9 +77,6 @@ export default function DebtsScreen() {
   const relevantDebts = debtAccounts.filter((a) => selectedAccounts.includes(a._id));
   const totalDebt = relevantDebts.reduce((acc, curr) => acc + (curr.balance || 0), 0);
   const maskValue = (val: string) => (isPrivate ? '****' : val);
-
-  // Colores sobrios para cuentas de deuda
-  const DEBT_ACCENT = '#C2410C'; // naranja-óxido
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -170,16 +170,24 @@ export default function DebtsScreen() {
         <View style={{ height: 80 }} />
       </ScrollView>
 
-      {/* Botón Flotante – abre modal de cuenta directamente en Inicio */}
+      {/* Botón Flotante – abre el modal de nueva cuenta aquí mismo, con "cuenta de deuda" preseleccionado */}
       <View style={styles.floatingButtonContainer}>
         <TouchableOpacity
           style={styles.addButton}
-          onPress={() => navigation.navigate('Balance')}
+          onPress={() => setAddAccountModalVisible(true)}
         >
           <Ionicons name="add" size={24} color={colors.primaryText} />
           <Text style={styles.addButtonText}>Agregar Cuenta de Deuda</Text>
         </TouchableOpacity>
       </View>
+
+      <AccountFormModal
+        visible={isAddAccountModalVisible}
+        mode="add"
+        initialLiability
+        onClose={() => setAddAccountModalVisible(false)}
+        onSaved={fetchDebtAccounts}
+      />
     </SafeAreaView>
   );
 }
