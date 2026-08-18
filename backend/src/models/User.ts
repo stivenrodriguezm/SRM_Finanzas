@@ -7,6 +7,8 @@ export interface IUserPreferences {
   selectedAccounts: string[];
   reminderOrder: string[];
   debtOrder: string[];
+  /** Día del mes (1-31) para el cierre mensual automático. `null` = desactivado. */
+  monthlyClosingDay: number | null;
 }
 
 export interface IUser extends Document {
@@ -36,6 +38,7 @@ const UserSchema = new Schema<IUser>(
       selectedAccounts: { type: [String], default: [] },
       reminderOrder: { type: [String], default: [] },
       debtOrder: { type: [String], default: [] },
+      monthlyClosingDay: { type: Number, min: 1, max: 31, default: null },
     },
     resetPasswordCodeHash: { type: String, select: false },
     resetPasswordExpires: { type: Date, select: false },

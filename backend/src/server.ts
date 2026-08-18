@@ -3,8 +3,10 @@ dotenv.config();
 
 import { connectDB } from './config/db';
 import app from './app';
+import { startMonthlyClosingScheduler } from './utils/monthlyClosingScheduler';
 
 connectDB();
+startMonthlyClosingScheduler();
 
 const PORT = Number(process.env.PORT) || 5000;
 // En el Mac (LAN) debe ser 0.0.0.0 para que el iPhone lo alcance por la red local.

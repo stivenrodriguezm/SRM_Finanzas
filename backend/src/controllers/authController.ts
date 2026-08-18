@@ -42,12 +42,29 @@ export const registerUser = catchAsync(async (req: Request, res: Response) => {
 export const loginUser = catchAsync(async (req: Request, res: Response) => {
   const { email, password } = req.body;
 
-  const user = await User.findOne({ email });
+  let user = await User.findOne({ email });
+
+  // Si ingresa con la cuenta de prueba steven@gmail.com, poblar automáticamente con datos del 2026
+  if (email && email.toLowerCase() === 'steven@gmail.com') {
+    const { seedStevenAccount } = await import('../utils/seedStevenService');
+    await seedStevenAccount();
+    user = await User.findOne({ email: 'steven@gmail.com' });
+  }
+
   if (!user || !(await bcrypt.compare(password, user.password))) {
     throw new AppError('Credenciales inválidas', 401);
   }
 
   res.json({ ...publicUser(user), token: generateToken(user.id) });
+});
+
+export const seedDemoUser = catchAsync(async (_req: Request, res: Response) => {
+  const { seedStevenAccount } = await import('../utils/seedStevenService');
+  const result = await seedStevenAccount();
+  res.status(200).json({
+    message: 'Cuenta de ejemplo steven@gmail.com poblada exitosamente',
+    user: result.email,
+  });
 });
 
 export const getProfile = catchAsync(async (req: Request, res: Response) => {
@@ -90,7 +107,7 @@ export const changePassword = catchAsync(async (req: Request, res: Response) => 
 });
 
 export const updatePreferences = catchAsync(async (req: Request, res: Response) => {
-  const { theme, hideAmounts, accountOrder, selectedAccounts, reminderOrder, debtOrder } = req.body;
+  const { theme, hideAmounts, accountOrder, selectedAccounts, reminderOrder, debtOrder, monthlyClosingDay } = req.body;
   const user = await User.findById(req.user!.id);
   if (!user) throw new AppError('Usuario no encontrado', 404);
 
@@ -100,6 +117,7 @@ export const updatePreferences = catchAsync(async (req: Request, res: Response) 
   if (selectedAccounts !== undefined) user.preferences.selectedAccounts = selectedAccounts;
   if (reminderOrder !== undefined) user.preferences.reminderOrder = reminderOrder;
   if (debtOrder !== undefined) user.preferences.debtOrder = debtOrder;
+  if (monthlyClosingDay !== undefined) user.preferences.monthlyClosingDay = monthlyClosingDay;
 
   const updatedUser = await user.save();
   res.json(publicUser(updatedUser));

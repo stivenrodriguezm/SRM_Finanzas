@@ -1,6 +1,7 @@
 import express from 'express';
 import {
   getReminders,
+  getReminderById,
   setReminder,
   updateReminder,
   markReminderPaid,
@@ -17,6 +18,7 @@ const router = express.Router();
 router.route('/').get(protect, getReminders).post(protect, validate(createReminderSchema), setReminder);
 router
   .route('/:id')
+  .get(protect, getReminderById)
   .put(protect, validate(updateReminderSchema), updateReminder)
   .delete(protect, deleteReminder);
 router.route('/:id/mark-paid').put(protect, markReminderPaid);

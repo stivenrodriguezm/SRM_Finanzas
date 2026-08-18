@@ -11,6 +11,13 @@ export const getReminders = catchAsync(async (req: Request, res: Response) => {
   res.status(200).json(reminders);
 });
 
+export const getReminderById = catchAsync(async (req: Request, res: Response) => {
+  const reminder = await Reminder.findById(req.params.id);
+  if (!reminder) throw new AppError('Recordatorio no encontrado', 404);
+  if (reminder.user.toString() !== req.user!.id) throw new AppError('Usuario no autorizado', 401);
+  res.status(200).json(reminder);
+});
+
 export const setReminder = catchAsync(async (req: Request, res: Response) => {
   const { title, date, type, amount, isPaid, paymentLink, description, dayOfMonth, notificationConfig, snoozedUntil } =
     req.body;
@@ -45,12 +52,22 @@ export const updateReminder = catchAsync(async (req: Request, res: Response) => 
   if (!reminder) throw new AppError('Recordatorio no encontrado', 404);
   if (reminder.user.toString() !== req.user!.id) throw new AppError('Usuario no autorizado', 401);
 
-  const updated = await Reminder.findByIdAndUpdate(req.params.id, req.body, {
-    new: true,
-    runValidators: true,
-  });
+  if (req.body.notificationConfig) {
+    const rawConfig = reminder.notificationConfig as any;
+    const existingConfig = rawConfig && typeof rawConfig.toObject === 'function'
+      ? rawConfig.toObject()
+      : (rawConfig || {});
+    reminder.notificationConfig = {
+      ...existingConfig,
+      ...req.body.notificationConfig,
+    };
+    delete req.body.notificationConfig;
+  }
 
-  res.status(200).json(updated);
+  Object.assign(reminder, req.body);
+  await reminder.save();
+
+  res.status(200).json(reminder);
 });
 
 export const markReminderPaid = catchAsync(async (req: Request, res: Response) => {

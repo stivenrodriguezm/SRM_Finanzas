@@ -6,6 +6,7 @@ import transactionRoutes from './routes/transactionRoutes';
 import debtRoutes from './routes/debtRoutes';
 import reminderRoutes from './routes/reminderRoutes';
 import analysisRoutes from './routes/analysisRoutes';
+import monthlyClosingRoutes from './routes/monthlyClosingRoutes';
 import { notFound, errorHandler } from './middlewares/errorHandler';
 
 const app = express();
@@ -23,6 +24,7 @@ app.use('/api/transactions', transactionRoutes);
 app.use('/api/debts', debtRoutes);
 app.use('/api/reminders', reminderRoutes);
 app.use('/api/analysis', analysisRoutes);
+app.use('/api/monthly-closings', monthlyClosingRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

@@ -30,6 +30,7 @@ export const updatePreferencesSchema = z.object({
   selectedAccounts: z.array(z.string()).optional(),
   reminderOrder: z.array(z.string()).optional(),
   debtOrder: z.array(z.string()).optional(),
+  monthlyClosingDay: z.coerce.number().int().min(1).max(31).nullable().optional(),
 });
 
 export const forgotPasswordSchema = z.object({

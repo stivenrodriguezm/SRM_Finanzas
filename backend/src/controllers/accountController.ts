@@ -27,6 +27,14 @@ export const setAccount = catchAsync(async (req: Request, res: Response) => {
     description: description || '',
   });
 
+  // Si el usuario ya tiene una selección de cuentas personalizada (preferences.selectedAccounts
+  // no vacío), la cuenta nueva debe entrar incluida en esa selección — si no, queda invisible/
+  // excluida del total de Home y Deudas hasta que el usuario la seleccione a mano.
+  if (req.user!.preferences.selectedAccounts.length > 0) {
+    req.user!.preferences.selectedAccounts.push(account.id);
+    await req.user!.save();
+  }
+
   res.status(201).json(account);
 });
 

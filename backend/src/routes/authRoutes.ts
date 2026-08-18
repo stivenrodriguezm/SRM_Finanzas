@@ -2,6 +2,7 @@ import express from 'express';
 import {
   registerUser,
   loginUser,
+  seedDemoUser,
   getProfile,
   updateProfile,
   changePassword,
@@ -25,6 +26,8 @@ const router = express.Router();
 
 router.post('/register', validate(registerSchema), registerUser);
 router.post('/login', validate(loginSchema), loginUser);
+router.post('/seed-demo', seedDemoUser);
+router.get('/seed-demo', seedDemoUser);
 router.post('/forgot-password', validate(forgotPasswordSchema), forgotPassword);
 router.post('/reset-password', validate(resetPasswordSchema), resetPassword);
 router.get('/profile', protect, getProfile);
