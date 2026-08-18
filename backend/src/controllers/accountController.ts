@@ -4,6 +4,7 @@ import Transaction from '../models/Transaction';
 import { AppError } from '../utils/AppError';
 import { catchAsync } from '../utils/catchAsync';
 import { withTransaction } from '../utils/withTransaction';
+import { balanceDelta } from '../utils/balanceDelta';
 
 export const getAccounts = catchAsync(async (req: Request, res: Response) => {
   const filter: Record<string, unknown> = { user: req.user!.id };
@@ -75,7 +76,10 @@ export const payLiabilityAccount = catchAsync(async (req: Request, res: Response
     liabilityAccount.balance = Math.max(0, liabilityAccount.balance - amount);
     await liabilityAccount.save({ session });
 
-    sourceAccount.balance -= amount;
+    // Normalmente la cuenta de origen es una cuenta normal (resta). Si por algún motivo también
+    // fuera de deuda (p. ej. pagar una tarjeta con un avance de otra), pagar "desde" ella es un
+    // cargo — aumenta lo que se debe ahí, no lo reduce.
+    sourceAccount.balance += balanceDelta('egreso', amount, sourceAccount.isLiability);
     await sourceAccount.save({ session });
 
     const [transaction] = await Transaction.create(

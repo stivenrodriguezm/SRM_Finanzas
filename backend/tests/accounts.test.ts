@@ -64,6 +64,25 @@ describe('Accounts', () => {
       expect(transactions.body.map((t: { type: string }) => t.type).sort()).toEqual(['abono_deuda', 'egreso']);
     });
 
+    it('si la cuenta de origen también es de deuda, pagar desde ella aumenta lo que se debe ahí', async () => {
+      const { token } = await createUser(app);
+      const api = authed(app, token);
+
+      const debtAccount = await api.post('/api/accounts').send({ name: 'Tarjeta A', balance: 100000, isLiability: true });
+      const sourceCard = await api.post('/api/accounts').send({ name: 'Tarjeta B', balance: 20000, isLiability: true });
+
+      const res = await api.post(`/api/accounts/${debtAccount.body._id}/payment`).send({
+        amount: 30000,
+        sourceAccountId: sourceCard.body._id,
+      });
+      expect(res.status).toBe(200);
+      expect(res.body.account.balance).toBe(70000);
+
+      const updated = await api.get('/api/accounts');
+      const source = updated.body.find((a: { _id: string }) => a._id === sourceCard.body._id);
+      expect(source.balance).toBe(50000);
+    });
+
     it('el abono nunca deja el balance de la deuda en negativo', async () => {
       const { token } = await createUser(app);
       const api = authed(app, token);

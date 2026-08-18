@@ -6,10 +6,7 @@ import Debt from '../models/Debt';
 import { AppError } from '../utils/AppError';
 import { catchAsync } from '../utils/catchAsync';
 import { withTransaction } from '../utils/withTransaction';
-
-/** Cuánto suma/resta un movimiento de este tipo al balance de una cuenta. */
-const balanceDelta = (type: TransactionType, amount: number): number =>
-  type === 'ingreso' ? amount : -amount;
+import { balanceDelta } from '../utils/balanceDelta';
 
 export const getTransactions = catchAsync(async (req: Request, res: Response) => {
   const transactions = await Transaction.find({ user: req.user!.id })
@@ -38,7 +35,7 @@ export const setTransaction = catchAsync(async (req: Request, res: Response) => 
       { session }
     );
 
-    userAccount.balance += balanceDelta(type, amount);
+    userAccount.balance += balanceDelta(type, amount, userAccount.isLiability);
     await userAccount.save({ session });
 
     return transaction;
@@ -83,15 +80,17 @@ export const updateTransaction = catchAsync(async (req: Request, res: Response) 
     if (!oldAccount) throw new AppError('Cuenta original no encontrada', 404);
 
     if (targetAccountId === oldAccountId) {
-      oldAccount.balance += -balanceDelta(transaction.type, oldAmount) + balanceDelta(transaction.type, newAmount);
+      oldAccount.balance +=
+        -balanceDelta(transaction.type, oldAmount, oldAccount.isLiability) +
+        balanceDelta(transaction.type, newAmount, oldAccount.isLiability);
       await oldAccount.save({ session });
     } else {
-      oldAccount.balance -= balanceDelta(transaction.type, oldAmount);
+      oldAccount.balance -= balanceDelta(transaction.type, oldAmount, oldAccount.isLiability);
       await oldAccount.save({ session });
 
       const newAccount = await Account.findById(targetAccountId).session(session);
       if (!newAccount) throw new AppError('Cuenta destino no encontrada', 404);
-      newAccount.balance += balanceDelta(transaction.type, newAmount);
+      newAccount.balance += balanceDelta(transaction.type, newAmount, newAccount.isLiability);
       await newAccount.save({ session });
     }
 
@@ -125,7 +124,7 @@ export const deleteTransaction = catchAsync(async (req: Request, res: Response) 
   await withTransaction(async (session) => {
     const account = await Account.findById(transaction.account).session(session);
     if (account) {
-      account.balance -= balanceDelta(transaction.type, transaction.amount);
+      account.balance -= balanceDelta(transaction.type, transaction.amount, account.isLiability);
       await account.save({ session });
     }
 

@@ -11,6 +11,11 @@ const createAccount = async (api: ReturnType<typeof authed>, balance = 1000) => 
   return res.body;
 };
 
+const createLiabilityAccount = async (api: ReturnType<typeof authed>, balance = 1000) => {
+  const res = await api.post('/api/accounts').send({ name: 'Tarjeta', balance, isLiability: true });
+  return res.body;
+};
+
 describe('Transactions — balance de cuentas', () => {
   it('un ingreso aumenta el balance y un egreso lo reduce', async () => {
     const { token } = await createUser(app);
@@ -87,5 +92,67 @@ describe('Transactions — balance de cuentas', () => {
     const b = accounts.body.find((x: { _id: string }) => x._id === accountB._id);
     expect(a.balance).toBe(1000);
     expect(b.balance).toBe(1200);
+  });
+});
+
+describe('Transactions — balance de cuentas de deuda (isLiability)', () => {
+  it('un egreso (cargo) aumenta el balance de una cuenta de deuda y un ingreso (crédito) lo reduce', async () => {
+    const { token } = await createUser(app);
+    const api = authed(app, token);
+    const card = await createLiabilityAccount(api, 90_000_000);
+
+    await api.post('/api/transactions').send({ account: card._id, title: 'Pago con tarjeta', amount: 127_500, type: 'egreso' });
+    let acc = await api.get('/api/accounts');
+    expect(acc.body[0].balance).toBe(90_000_000 + 127_500);
+
+    await api.post('/api/transactions').send({ account: card._id, title: 'Reembolso', amount: 50_000, type: 'ingreso' });
+    acc = await api.get('/api/accounts');
+    expect(acc.body[0].balance).toBe(90_000_000 + 127_500 - 50_000);
+  });
+
+  it('borrar un egreso de una cuenta de deuda revierte el aumento', async () => {
+    const { token } = await createUser(app);
+    const api = authed(app, token);
+    const card = await createLiabilityAccount(api, 90_000_000);
+
+    const tx = await api
+      .post('/api/transactions')
+      .send({ account: card._id, title: 'Pago con tarjeta', amount: 127_500, type: 'egreso' });
+    let acc = await api.get('/api/accounts');
+    expect(acc.body[0].balance).toBe(90_127_500);
+
+    await api.delete(`/api/transactions/${tx.body._id}`);
+    acc = await api.get('/api/accounts');
+    expect(acc.body[0].balance).toBe(90_000_000);
+  });
+
+  it('editar el monto de un egreso en una cuenta de deuda recalcula el balance correctamente', async () => {
+    const { token } = await createUser(app);
+    const api = authed(app, token);
+    const card = await createLiabilityAccount(api, 90_000_000);
+
+    const tx = await api
+      .post('/api/transactions')
+      .send({ account: card._id, title: 'Pago con tarjeta', amount: 127_500, type: 'egreso' });
+    await api.put(`/api/transactions/${tx.body._id}`).send({ amount: 200_000 });
+
+    const acc = await api.get('/api/accounts');
+    expect(acc.body[0].balance).toBe(90_000_000 + 200_000);
+  });
+
+  it('mover un egreso de una cuenta normal a una de deuda invierte el efecto en la cuenta destino', async () => {
+    const { token } = await createUser(app);
+    const api = authed(app, token);
+    const normal = await createAccount(api, 1000);
+    const card = await createLiabilityAccount(api, 90_000_000);
+
+    const tx = await api.post('/api/transactions').send({ account: normal._id, title: 'Gasto', amount: 300, type: 'egreso' });
+    await api.put(`/api/transactions/${tx.body._id}`).send({ account: card._id });
+
+    const accounts = await api.get('/api/accounts');
+    const normalAcc = accounts.body.find((x: { _id: string }) => x._id === normal._id);
+    const cardAcc = accounts.body.find((x: { _id: string }) => x._id === card._id);
+    expect(normalAcc.balance).toBe(1000);
+    expect(cardAcc.balance).toBe(90_000_300);
   });
 });

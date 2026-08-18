@@ -5,6 +5,7 @@ import Account from '../models/Account';
 import { AppError } from '../utils/AppError';
 import { catchAsync } from '../utils/catchAsync';
 import { withTransaction } from '../utils/withTransaction';
+import { balanceDelta } from '../utils/balanceDelta';
 
 export const getReminders = catchAsync(async (req: Request, res: Response) => {
   const reminders = await Reminder.find({ user: req.user!.id }).sort({ date: 1 });
@@ -124,7 +125,7 @@ export const payReminder = catchAsync(async (req: Request, res: Response) => {
       { session }
     );
 
-    account.balance -= amount;
+    account.balance += balanceDelta('egreso', amount, account.isLiability);
     await account.save({ session });
 
     reminder.snoozedUntil = undefined;

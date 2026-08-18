@@ -25,6 +25,21 @@ describe('Reminders', () => {
     expect(payments.body[0].amount).toBe(45);
   });
 
+  it('pagar un recordatorio con una cuenta de deuda aumenta lo que se debe, no lo reduce', async () => {
+    const { token } = await createUser(app);
+    const api = authed(app, token);
+    const card = await api.post('/api/accounts').send({ name: 'Tarjeta', balance: 90_000_000, isLiability: true });
+    const reminder = await api.post('/api/reminders').send({ title: 'Servicios', type: 'unico', date: new Date().toISOString() });
+
+    const pay = await api
+      .post(`/api/reminders/${reminder.body._id}/pay`)
+      .send({ amount: 127_500, accountId: card.body._id });
+    expect(pay.status).toBe(200);
+
+    const accounts = await api.get('/api/accounts');
+    expect(accounts.body[0].balance).toBe(90_127_500);
+  });
+
   it('pagar un recordatorio periódico avanza la fecha y no lo marca como pagado', async () => {
     const { token } = await createUser(app);
     const api = authed(app, token);
