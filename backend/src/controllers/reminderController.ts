@@ -26,8 +26,10 @@ export const setReminder = catchAsync(async (req: Request, res: Response) => {
   let reminderDate = date;
   if (type === 'periodico' && !date && dayOfMonth) {
     const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const nextDate = new Date(now.getFullYear(), now.getMonth(), dayOfMonth);
-    if (nextDate <= now) nextDate.setMonth(nextDate.getMonth() + 1);
+    // Solo avanzar al mes siguiente si el día ya pasó estrictamente (no si es hoy)
+    if (nextDate < todayStart) nextDate.setMonth(nextDate.getMonth() + 1);
     reminderDate = nextDate;
   }
 
@@ -52,6 +54,10 @@ export const updateReminder = catchAsync(async (req: Request, res: Response) => 
   const reminder = await Reminder.findById(req.params.id);
   if (!reminder) throw new AppError('Recordatorio no encontrado', 404);
   if (reminder.user.toString() !== req.user!.id) throw new AppError('Usuario no autorizado', 401);
+
+  // Nunca permitir que un PUT de edición cambie el estado de pago.
+  // isPaid solo se modifica a través de /mark-paid y /pay.
+  delete req.body.isPaid;
 
   if (req.body.notificationConfig) {
     const rawConfig = reminder.notificationConfig as any;
@@ -80,8 +86,10 @@ export const markReminderPaid = catchAsync(async (req: Request, res: Response) =
   reminder.snoozedUntil = undefined;
 
   if (reminder.type === 'periodico' && reminder.dayOfMonth) {
-    const currentDate = new Date(reminder.date);
-    reminder.date = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, reminder.dayOfMonth);
+    // Avanzar SIEMPRE desde la fecha original del recordatorio, no desde hoy.
+    // Así un pago atrasado no desplaza el próximo ciclo.
+    const originalDue = new Date(reminder.date);
+    reminder.date = new Date(originalDue.getFullYear(), originalDue.getMonth() + 1, reminder.dayOfMonth);
     reminder.isPaid = false;
   }
 
@@ -133,12 +141,12 @@ export const payReminder = catchAsync(async (req: Request, res: Response) => {
     if (reminder.type === 'unico') {
       reminder.isPaid = true;
     } else if (reminder.type === 'periodico') {
-      // Avanza un mes exacto desde el vencimiento actual del recordatorio (no desde
-      // "hoy"): así pagar siempre mueve al siguiente período, sin importar si se pagó
-      // antes o después de la fecha de vencimiento.
-      const currentDate = new Date(reminder.date);
-      const day = reminder.dayOfMonth || currentDate.getDate();
-      reminder.date = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, day);
+      // Avanzar SIEMPRE desde la fecha original de vencimiento del recordatorio.
+      // Si el usuario pagó tarde (ej: debía el día 15, pagó el 18), el próximo
+      // recordatorio igualmente queda para el 15 del mes siguiente, no para el 18.
+      const originalDue = new Date(reminder.date);
+      const day = reminder.dayOfMonth || originalDue.getDate();
+      reminder.date = new Date(originalDue.getFullYear(), originalDue.getMonth() + 1, day);
     }
     await reminder.save({ session });
 

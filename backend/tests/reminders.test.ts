@@ -146,4 +146,48 @@ describe('Reminders', () => {
     const marked = await api.put(`/api/reminders/${reminder.body._id}/mark-paid`);
     expect(marked.body.snoozedUntil).toBeFalsy();
   });
+
+  it('PUT /:id no cambia isPaid aunque venga en el body — solo /mark-paid y /pay pueden marcarlo pagado', async () => {
+    const { token } = await createUser(app);
+    const api = authed(app, token);
+    const reminder = await api.post('/api/reminders').send({ title: 'Netflix', type: 'unico', date: new Date().toISOString() });
+    expect(reminder.body.isPaid).toBe(false);
+
+    const updated = await api.put(`/api/reminders/${reminder.body._id}`).send({ isPaid: true, title: 'Netflix Premium' });
+    expect(updated.status).toBe(200);
+    expect(updated.body.isPaid).toBe(false);
+    expect(updated.body.title).toBe('Netflix Premium');
+  });
+
+  it('PUT /:id que solo cambia notificationConfig no toca la fecha de un recordatorio periódico', async () => {
+    const { token } = await createUser(app);
+    const api = authed(app, token);
+    const reminder = await api.post('/api/reminders').send({
+      title: 'Arriendo',
+      type: 'periodico',
+      date: new Date(2026, 5, 15).toISOString(),
+      dayOfMonth: 15,
+    });
+    const originalDate = reminder.body.date;
+
+    const updated = await api
+      .put(`/api/reminders/${reminder.body._id}`)
+      .send({ notificationConfig: { mode: 'off' } });
+    expect(updated.status).toBe(200);
+    expect(new Date(updated.body.date).getTime()).toBe(new Date(originalDate).getTime());
+    expect(updated.body.isPaid).toBe(false);
+  });
+
+  it('crear un recordatorio periódico para hoy no lo adelanta un mes', async () => {
+    const { token } = await createUser(app);
+    const api = authed(app, token);
+    const today = new Date();
+
+    const reminder = await api.post('/api/reminders').send({ title: 'Hoy mismo', type: 'periodico', dayOfMonth: today.getDate() });
+    expect(reminder.status).toBe(201);
+    const savedDate = new Date(reminder.body.date);
+    expect(savedDate.getFullYear()).toBe(today.getFullYear());
+    expect(savedDate.getMonth()).toBe(today.getMonth());
+    expect(savedDate.getDate()).toBe(today.getDate());
+  });
 });
